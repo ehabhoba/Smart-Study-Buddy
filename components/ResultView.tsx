@@ -169,7 +169,7 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
                })],
                spacing: { after: 120 },
                bidirectional: true
-            }));
+             }));
           }
         }
         
@@ -192,6 +192,108 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
         return children;
       };
 
+      // Construct Metadata Table (Formatted 2x2 Grid)
+      const metadataTable = new Table({
+        width: {
+          size: 100,
+          type: WidthType.PERCENTAGE,
+        },
+        rows: [
+          new TableRow({
+            children: [
+              new TableCell({
+                children: [
+                  new Paragraph({
+                    children: [new TextRun({ text: "المادة الدراسية", font: "Tajawal", size: 20, color: "3B82F6" })], // blue-500
+                    alignment: AlignmentType.CENTER,
+                  }),
+                  new Paragraph({
+                    children: [new TextRun({ text: result.metadata.subject, font: "Tajawal", size: 28, bold: true })],
+                    alignment: AlignmentType.CENTER,
+                  }),
+                ],
+                shading: { fill: "EFF6FF" }, // blue-50
+                verticalAlign: AlignmentType.CENTER,
+                margins: { top: 200, bottom: 200, left: 200, right: 200 },
+                borders: {
+                    top: { style: BorderStyle.SINGLE, size: 1, color: "BFDBFE" },
+                    bottom: { style: BorderStyle.SINGLE, size: 1, color: "BFDBFE" },
+                    left: { style: BorderStyle.SINGLE, size: 1, color: "BFDBFE" },
+                    right: { style: BorderStyle.SINGLE, size: 1, color: "BFDBFE" },
+                }
+              }),
+              new TableCell({
+                children: [
+                  new Paragraph({
+                    children: [new TextRun({ text: "المرحلة", font: "Tajawal", size: 20, color: "9333EA" })], // purple-600
+                    alignment: AlignmentType.CENTER,
+                  }),
+                  new Paragraph({
+                    children: [new TextRun({ text: result.metadata.stage, font: "Tajawal", size: 28, bold: true })],
+                    alignment: AlignmentType.CENTER,
+                  }),
+                ],
+                shading: { fill: "FAF5FF" }, // purple-50
+                verticalAlign: AlignmentType.CENTER,
+                margins: { top: 200, bottom: 200, left: 200, right: 200 },
+                 borders: {
+                    top: { style: BorderStyle.SINGLE, size: 1, color: "E9D5FF" },
+                    bottom: { style: BorderStyle.SINGLE, size: 1, color: "E9D5FF" },
+                    left: { style: BorderStyle.SINGLE, size: 1, color: "E9D5FF" },
+                    right: { style: BorderStyle.SINGLE, size: 1, color: "E9D5FF" },
+                }
+              }),
+            ],
+          }),
+          new TableRow({
+            children: [
+              new TableCell({
+                children: [
+                  new Paragraph({
+                    children: [new TextRun({ text: "المنهج", font: "Tajawal", size: 20, color: "16A34A" })], // green-600
+                    alignment: AlignmentType.CENTER,
+                  }),
+                  new Paragraph({
+                    children: [new TextRun({ text: result.metadata.curriculum, font: "Tajawal", size: 28, bold: true })],
+                    alignment: AlignmentType.CENTER,
+                  }),
+                ],
+                shading: { fill: "F0FDF4" }, // green-50
+                verticalAlign: AlignmentType.CENTER,
+                margins: { top: 200, bottom: 200, left: 200, right: 200 },
+                 borders: {
+                    top: { style: BorderStyle.SINGLE, size: 1, color: "BBF7D0" },
+                    bottom: { style: BorderStyle.SINGLE, size: 1, color: "BBF7D0" },
+                    left: { style: BorderStyle.SINGLE, size: 1, color: "BBF7D0" },
+                    right: { style: BorderStyle.SINGLE, size: 1, color: "BBF7D0" },
+                }
+              }),
+              new TableCell({
+                children: [
+                  new Paragraph({
+                    children: [new TextRun({ text: "لغة الكتاب", font: "Tajawal", size: 20, color: "EA580C" })], // orange-600
+                    alignment: AlignmentType.CENTER,
+                  }),
+                  new Paragraph({
+                    children: [new TextRun({ text: result.metadata.language, font: "Tajawal", size: 28, bold: true })],
+                    alignment: AlignmentType.CENTER,
+                  }),
+                ],
+                shading: { fill: "FFF7ED" }, // orange-50
+                verticalAlign: AlignmentType.CENTER,
+                margins: { top: 200, bottom: 200, left: 200, right: 200 },
+                 borders: {
+                    top: { style: BorderStyle.SINGLE, size: 1, color: "FED7AA" },
+                    bottom: { style: BorderStyle.SINGLE, size: 1, color: "FED7AA" },
+                    left: { style: BorderStyle.SINGLE, size: 1, color: "FED7AA" },
+                    right: { style: BorderStyle.SINGLE, size: 1, color: "FED7AA" },
+                }
+              }),
+            ],
+          }),
+        ],
+      });
+
       // Construct Sections
       const infoChildren = [
         new Paragraph({ 
@@ -201,24 +303,8 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
           bidirectional: true 
         }),
         new Paragraph({ text: "" }),
-        new Paragraph({ 
-          children: [
-            new TextRun({ text: "المادة: ", bold: true, font: "Tajawal", size: 28 }), 
-            new TextRun({ text: result.metadata.subject, font: "Tajawal", size: 28 })
-          ], bidirectional: true 
-        }),
-        new Paragraph({ 
-          children: [
-            new TextRun({ text: "المرحلة: ", bold: true, font: "Tajawal", size: 28 }), 
-            new TextRun({ text: result.metadata.stage, font: "Tajawal", size: 28 })
-          ], bidirectional: true
-        }),
-        new Paragraph({ 
-          children: [
-            new TextRun({ text: "المنهج: ", bold: true, font: "Tajawal", size: 28 }), 
-            new TextRun({ text: result.metadata.curriculum, font: "Tajawal", size: 28 })
-          ], bidirectional: true
-        }),
+        // Replaced plain text list with formatted table
+        metadataTable,
         new Paragraph({ text: "" }),
         new Paragraph({ text: "نظرة عامة:", heading: HeadingLevel.HEADING_2, bidirectional: true }),
         new Paragraph({ text: result.metadata.overview, font: "Tajawal", size: 24, bidirectional: true }),
