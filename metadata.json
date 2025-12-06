@@ -1,0 +1,5 @@
+{
+  "name": "Smart Study Buddy (المُلخص الذكي)",
+  "description": "An intelligent AI-powered curriculum summarizer for students. Upload PDFs, analyze content, and generate comprehensive study guides, summaries, and Q&A banks using Gemini.",
+  "requestFramePermissions": []
+}

@@ -1,0 +1,39 @@
+export enum SummaryLevel {
+  CONCISE = 'concise',
+  BALANCED = 'balanced',
+  COMPREHENSIVE = 'comprehensive',
+}
+
+export interface BookMetadata {
+  language: string;
+  subject: string;
+  stage: string;
+  curriculum: string;
+  overview: string;
+}
+
+export interface AnalysisResult {
+  metadata: BookMetadata;
+  summary: string;
+  qaBank: string;
+}
+
+export enum AppStatus {
+  IDLE = 'idle',
+  READING = 'reading', // Extracting text from PDF
+  READY = 'ready', // Text extracted, waiting for user to start AI
+  PROCESSING = 'processing', // Waiting for Gemini
+  COMPLETE = 'complete',
+  ERROR = 'error'
+}
+
+export interface PdfExtractResult {
+  text: string;
+  pageCount: number;
+}
+
+export interface ChatMessage {
+  role: 'user' | 'model';
+  text: string;
+  isThinking?: boolean;
+}
