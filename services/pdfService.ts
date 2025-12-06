@@ -3,6 +3,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 // We need to set the worker source. Since we are in a no-bundler/ESM environment for the worker usually,
 // we point to a CDN that matches the version.
 // Switching to jsDelivr as it reliably mirrors npm versions and paths compared to cdnjs.
+// Using explicit version matching.
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 export const extractTextFromPdf = async (

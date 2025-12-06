@@ -5,7 +5,7 @@ import { AnalysisResult, ChatMessage } from '../types';
 import { Book, FileText, HelpCircle, Download, Printer, MessageCircle, Send, User, Bot, Sparkles, Copy, Check, FileDown, Layers, Calendar, ChevronRight, ChevronLeft, RotateCw, Volume2, StopCircle } from 'lucide-react';
 import { initChatSession, sendMessageToChat } from '../services/geminiService';
 import * as docx from 'docx';
-import { saveAs } from 'file-saver';
+import * as FileSaver from 'file-saver';
 
 interface ResultViewProps {
   result: AnalysisResult;
@@ -84,7 +84,9 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
   const generateWordDocument = async () => {
     setIsGeneratingDoc(true);
     try {
-      const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, BorderStyle, WidthType, AlignmentType } = docx;
+      // Handle potential ESM/CJS interop issues with docx in browser
+      const docxLib = (docx as any).default || docx;
+      const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, BorderStyle, WidthType, AlignmentType } = docxLib;
 
       // Helper to determine color from emoji
       const getColorFromText = (text: string): string => {
@@ -372,6 +374,11 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
       });
 
       const blob = await Packer.toBlob(doc);
+      
+      // Handle file-saver import (ESM/CJS interop)
+      // The esm.sh version of file-saver might export saveAs as default or as a named export.
+      // We handle both cases here.
+      const saveAs = (FileSaver as any).saveAs || (FileSaver as any).default || FileSaver;
       saveAs(blob, `${result.metadata.subject}_Exam_Capsule.docx`);
 
     } catch (e) {

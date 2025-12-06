@@ -16,7 +16,7 @@
     "@google/genai": "^1.31.0",
     "pdfjs-dist": "^5.4.449",
     "remark-gfm": "^4.0.1",
-    "docx": "7.8.2",
+    "docx": "8.5.0",
     "file-saver": "2.0.5"
   },
   "devDependencies": {
