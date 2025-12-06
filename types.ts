@@ -12,10 +12,22 @@ export interface BookMetadata {
   overview: string;
 }
 
+export interface Flashcard {
+  front: string;
+  back: string;
+}
+
+export interface StudyItem {
+  day: string;
+  tasks: string[];
+}
+
 export interface AnalysisResult {
   metadata: BookMetadata;
   summary: string;
   qaBank: string;
+  flashcards: Flashcard[];
+  studyPlan: StudyItem[];
 }
 
 export enum AppStatus {

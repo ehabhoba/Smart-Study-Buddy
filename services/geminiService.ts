@@ -66,6 +66,15 @@ export const analyzeCurriculum = async (
        - صنف الأسئلة (اختيار من متعدد، مقالي، مسائل).
        - أرفق الإجابة النموذجية لكل سؤال (استخدم 🟢 للإجابة الصحيحة).
        - استخدم الجداول في الأسئلة إذا تطلب الأمر (مثل أسئلة التوصيل أو المقارنة).
+    
+    4. **بطاقات الاستذكار (Smart Flashcards):**
+       - قم باستخراج أهم 10-20 مصطلح أو مفهوم أو قانون من الكتاب.
+       - صغها على شكل بطاقات (الوجه: المصطلح/السؤال، الظهر: التعريف/الإجابة).
+
+    5. **خطة المذاكرة الذكية (Smart Study Planner):**
+       - اقترح جدولاً زمنياً منطقياً لمذاكرة هذا المحتوى بالكامل.
+       - قسم الجدول إلى "أيام" أو "وحدات زمنية" (مثلاً: اليوم الأول، اليوم الثاني...).
+       - ضع مهام محددة لكل يوم (قراءة الفصل س، حل تمارين ص، إلخ).
   `;
 
   const response = await ai.models.generateContent({
@@ -96,9 +105,31 @@ export const analyzeCurriculum = async (
           qaBank: {
             type: Type.STRING,
             description: "Markdown formatted Q&A bank containing ALL questions from the book, using tables where appropriate."
+          },
+          flashcards: {
+            type: Type.ARRAY,
+            description: "A list of flashcards for active recall study.",
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                front: { type: Type.STRING, description: "The term or question on the front of the card" },
+                back: { type: Type.STRING, description: "The definition or answer on the back of the card" }
+              }
+            }
+          },
+          studyPlan: {
+            type: Type.ARRAY,
+            description: "A suggested study schedule.",
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                day: { type: Type.STRING, description: "Time unit (e.g. Day 1, Week 1)" },
+                tasks: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of tasks for this time unit" }
+              }
+            }
           }
         },
-        required: ["metadata", "summary", "qaBank"]
+        required: ["metadata", "summary", "qaBank", "flashcards", "studyPlan"]
       }
     }
   });

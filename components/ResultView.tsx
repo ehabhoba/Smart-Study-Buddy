@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { AnalysisResult, ChatMessage } from '../types';
-import { Book, FileText, HelpCircle, Download, Printer, MessageCircle, Send, User, Bot, Sparkles, Copy, Check, FileDown } from 'lucide-react';
+import { Book, FileText, HelpCircle, Download, Printer, MessageCircle, Send, User, Bot, Sparkles, Copy, Check, FileDown, Layers, Calendar, ChevronRight, ChevronLeft, RotateCw, Volume2, StopCircle } from 'lucide-react';
 import { initChatSession, sendMessageToChat } from '../services/geminiService';
 import * as docx from 'docx';
 import { saveAs } from 'file-saver';
@@ -14,9 +14,18 @@ interface ResultViewProps {
 }
 
 const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText }) => {
-  const [activeTab, setActiveTab] = useState<'info' | 'summary' | 'qa' | 'chat'>('summary');
+  const [activeTab, setActiveTab] = useState<'info' | 'summary' | 'flashcards' | 'plan' | 'qa' | 'chat'>('summary');
   const [copied, setCopied] = useState(false);
   const [isGeneratingDoc, setIsGeneratingDoc] = useState(false);
+  
+  // Flashcard State
+  const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  const [isFlipped, setIsFlipped] = useState(false);
+
+  // Text-to-Speech State
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const synthRef = useRef<SpeechSynthesis | null>(null);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   
   // Chat State
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -31,6 +40,13 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
     if (apiKey && originalText) {
       initChatSession(apiKey, originalText);
     }
+    synthRef.current = window.speechSynthesis;
+    
+    return () => {
+       if (synthRef.current && isSpeaking) {
+         synthRef.current.cancel();
+       }
+    };
   }, [apiKey, originalText]);
 
   // Auto-scroll chat
@@ -40,6 +56,28 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
 
   const handlePrint = () => {
     window.print();
+  };
+
+  // --- TTS Logic ---
+  const toggleSpeech = () => {
+    if (isSpeaking) {
+      synthRef.current?.cancel();
+      setIsSpeaking(false);
+    } else {
+      // Create text to read. Prioritize summary, fall back to something else.
+      const textToRead = result.summary.replace(/[#*`]/g, ''); // Simple cleanup of markdown symbols
+      
+      const utterance = new SpeechSynthesisUtterance(textToRead);
+      utterance.lang = 'ar-SA'; // Try Arabic
+      utterance.rate = 1.0;
+      
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+
+      utteranceRef.current = utterance;
+      synthRef.current?.speak(utterance);
+      setIsSpeaking(true);
+    }
   };
 
   // --- DOCX GENERATION LOGIC ---
@@ -376,6 +414,21 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
     }
   };
 
+  // Flashcard controls
+  const nextCard = () => {
+    setIsFlipped(false);
+    setTimeout(() => {
+        setCurrentCardIndex((prev) => (prev + 1) % (result.flashcards?.length || 1));
+    }, 200);
+  };
+
+  const prevCard = () => {
+    setIsFlipped(false);
+     setTimeout(() => {
+        setCurrentCardIndex((prev) => (prev - 1 + (result.flashcards?.length || 1)) % (result.flashcards?.length || 1));
+    }, 200);
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 flex flex-col h-full min-h-[600px]">
       {/* Toolbar */}
@@ -394,6 +447,20 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
           >
             <FileText size={16} />
             كبسولة الامتحان
+          </button>
+           <button 
+            onClick={() => setActiveTab('flashcards')}
+            className={`px-3 md:px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'flashcards' ? 'bg-primary-50 text-primary-700 shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}
+          >
+            <Layers size={16} />
+            بطاقات الاستذكار
+          </button>
+           <button 
+            onClick={() => setActiveTab('plan')}
+            className={`px-3 md:px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'plan' ? 'bg-primary-50 text-primary-700 shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}
+          >
+            <Calendar size={16} />
+            خطة المذاكرة
           </button>
           <button 
             onClick={() => setActiveTab('qa')}
@@ -468,10 +535,96 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
           {/* Summary Tab */}
           {activeTab === 'summary' && (
             <div className="animate-in fade-in duration-300 max-w-4xl mx-auto markdown-body">
+              <div className="flex justify-between items-center mb-6">
+                 <h2 className="text-2xl font-bold text-gray-800">الملخص الشامل</h2>
+                 <button 
+                  onClick={toggleSpeech}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all ${isSpeaking ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-primary-50 text-primary-600 hover:bg-primary-100'}`}
+                 >
+                   {isSpeaking ? <StopCircle size={18} /> : <Volume2 size={18} />}
+                   {isSpeaking ? 'إيقاف القراءة' : 'استمع للملخص'}
+                 </button>
+              </div>
               <ReactMarkdown remarkPlugins={[remarkGfm]} className="prose prose-lg prose-indigo max-w-none text-gray-800">
                 {result.summary}
               </ReactMarkdown>
             </div>
+          )}
+
+           {/* Flashcards Tab */}
+          {activeTab === 'flashcards' && (
+             <div className="animate-in fade-in duration-300 max-w-2xl mx-auto flex flex-col items-center justify-center min-h-[400px]">
+               {result.flashcards && result.flashcards.length > 0 ? (
+                 <>
+                    <div className="relative w-full aspect-[1.6] perspective-1000 mb-8 cursor-pointer" onClick={() => setIsFlipped(!isFlipped)}>
+                       <div className={`relative w-full h-full text-center transition-transform duration-700 transform-style-3d shadow-xl rounded-2xl ${isFlipped ? 'rotate-y-180' : ''}`}>
+                          {/* Front */}
+                          <div className="absolute w-full h-full backface-hidden bg-gradient-to-br from-primary-500 to-primary-600 text-white rounded-2xl p-8 flex flex-col items-center justify-center border-2 border-primary-400">
+                             <h3 className="text-lg font-medium opacity-80 mb-4">المصطلح / السؤال</h3>
+                             <p className="text-3xl font-bold leading-tight">{result.flashcards[currentCardIndex].front}</p>
+                             <div className="mt-8 text-sm opacity-70 flex items-center gap-2">
+                               <RotateCw size={14} />
+                               اضغط للقلب
+                             </div>
+                          </div>
+                          {/* Back */}
+                          <div className="absolute w-full h-full backface-hidden rotate-y-180 bg-white text-gray-800 rounded-2xl p-8 flex flex-col items-center justify-center border-2 border-gray-200">
+                             <h3 className="text-lg font-medium text-gray-400 mb-4">التعريف / الإجابة</h3>
+                             <p className="text-xl leading-relaxed font-medium">{result.flashcards[currentCardIndex].back}</p>
+                          </div>
+                       </div>
+                    </div>
+
+                    <div className="flex items-center gap-6">
+                       <button onClick={prevCard} className="p-3 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors">
+                         <ChevronRight size={24} />
+                       </button>
+                       <span className="font-bold text-gray-500">
+                          {currentCardIndex + 1} / {result.flashcards.length}
+                       </span>
+                       <button onClick={nextCard} className="p-3 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors">
+                         <ChevronLeft size={24} />
+                       </button>
+                    </div>
+                 </>
+               ) : (
+                 <div className="text-center text-gray-500">
+                   <Layers size={48} className="mx-auto mb-4 opacity-20" />
+                   <p>لم يتم توليد بطاقات لهذا المحتوى.</p>
+                 </div>
+               )}
+             </div>
+          )}
+
+          {/* Study Plan Tab */}
+          {activeTab === 'plan' && (
+             <div className="animate-in fade-in duration-300 max-w-3xl mx-auto">
+               <h2 className="text-2xl font-bold text-gray-800 mb-8 flex items-center gap-3">
+                 <Calendar className="text-primary-600" />
+                 خطة المذاكرة المقترحة
+               </h2>
+               
+               {result.studyPlan && result.studyPlan.length > 0 ? (
+                 <div className="relative border-r-2 border-primary-200 mr-4 space-y-12">
+                   {result.studyPlan.map((item, idx) => (
+                     <div key={idx} className="relative pr-8">
+                       <div className="absolute -right-[9px] top-0 w-4 h-4 rounded-full bg-primary-500 ring-4 ring-primary-100"></div>
+                       <h3 className="text-xl font-bold text-primary-700 mb-3">{item.day}</h3>
+                       <ul className="space-y-3">
+                         {item.tasks.map((task, tIdx) => (
+                           <li key={tIdx} className="bg-gray-50 p-4 rounded-lg border border-gray-100 flex gap-3 text-gray-700">
+                              <Check size={18} className="text-green-500 mt-1 flex-shrink-0" />
+                              <span>{task}</span>
+                           </li>
+                         ))}
+                       </ul>
+                     </div>
+                   ))}
+                 </div>
+               ) : (
+                 <p className="text-center text-gray-500">لا توجد خطة مذاكرة متاحة.</p>
+               )}
+             </div>
           )}
 
           {/* Q&A Tab */}
