@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Chat } from "@google/genai";
-import { SummaryLevel, AnalysisResult } from "../types";
+import { SummaryLevel, AnalysisResult, OutputLanguage } from "../types";
 
 // Helper to initialize AI
 const getAiClient = (apiKey: string) => new GoogleGenAI({ apiKey });
@@ -7,7 +7,8 @@ const getAiClient = (apiKey: string) => new GoogleGenAI({ apiKey });
 export const analyzeCurriculum = async (
   apiKey: string,
   text: string,
-  summaryLevel: SummaryLevel
+  summaryLevel: SummaryLevel,
+  outputLanguage: OutputLanguage
 ): Promise<AnalysisResult> => {
   
   const ai = getAiClient(apiKey);
@@ -18,73 +19,101 @@ export const analyzeCurriculum = async (
       summaryInstruction = `
         **وضع كبسولة الامتحان (Exam Capsule Mode) - الأهمية القصوى**:
         1. **قاعدة 10:1**: الهدف هو تلخيص كل 100 صفحة في حوالي 10 صفحات فقط. كثف المحتوى لأقصى درجة دون فقدان المعلومات الامتحانية.
-        2. **التكويد البصري (الألوان)**: بما أن النص لا يدعم الألوان المباشرة، استخدم الرموز التالية لتمييز الفقرات بصرياً:
-           - 🔴 **هام جداً / موضع سؤال امتحان**: للنقاط التي تتكرر في الاختبارات والقوانين الصارمة.
-           - 🟢 **تعريف / مفهوم**: للمصطلحات والتعريفات الأساسية.
-           - 💡 **فكرة ذكية**: لطرق الحل السريع أو الفهم العميق.
-           - ⚠️ **تنبيه**: للأخطاء الشائعة التي يقع فيها الطلاب.
+        2. **التكويد البصري (Visual Coding)**: استخدم مقتبسات Markdown (Blockquotes >) مع الرموز التالية لإنشاء صناديق ملونة:
+           - > 🔴 **هام جداً / موضع سؤال امتحان**: للنقاط التي تتكرر في الاختبارات والقوانين الصارمة.
+           - > 🟢 **تعريف / إجابة نموذجية**: للمصطلحات، التعريفات، والإجابات الصحيحة.
+           - > 💡 **فكرة ذكية / تبسيط**: لطرق الحل السريع أو الفهم العميق.
+           - > ⚠️ **تنبيه / خطأ شائع**: للأخطاء الشائعة التي يقع فيها الطلاب.
         3. **الجداول والمقارنات (هام)**: استخدم جداول Markdown بشكل مكثف للمقارنات ولعرض البيانات بشكل منظم.
         4. **الصور**: إذا كان هناك شرح يعتمد على رسم بياني أو صورة، ضع ملاحظة: [صورة توضيحية مطلوبة: وصف الصورة].
       `;
       break;
     case SummaryLevel.BALANCED:
-      summaryInstruction = "تلخيص متوسط (شرح المفاهيم الأساسية). وازن بين التفاصيل والاختصار. حافظ على هيكلية الكتاب الأصلية. استخدم جداول Markdown لتنظيم المعلومات المعقدة. استخدم الرموز 🟢 و 🔵 لتوضيح العناوين.";
+      summaryInstruction = "تلخيص متوسط (شرح المفاهيم الأساسية). وازن بين التفاصيل والاختصار. حافظ على هيكلية الكتاب الأصلية. استخدم جداول Markdown لتنظيم المعلومات المعقدة. استخدم > 🟢 للتعريفات و > 🔵 للعناوين الفرعية.";
       break;
     case SummaryLevel.COMPREHENSIVE:
       summaryInstruction = "تلخيص شامل ودقيق. يجب تغطية كل فصل، مع الحفاظ على التنسيق الأصلي للعناوين والجداول والقوائم. هذا بديل للكتاب للدراسة.";
       break;
   }
 
-  // Truncate logic to ensure we don't exceed limits too wildly, though 1M is generous.
-  // Using 800k chars is a safe buffer.
-  const processedText = text.substring(0, 800000);
+  // Define language instruction based on user choice
+  let languageInstruction = "";
+  if (outputLanguage === 'ar') {
+    languageInstruction = `
+      **Output Language Policy (FORCED ARABIC):**
+      - **CRITICAL**: The user has explicitly requested the summary, Q&A, and study plan to be in **ARABIC**.
+      - Even if the input text is English or French, you MUST translate and summarize into professional Academic Arabic.
+      - **Scientific Terms**: When translating scientific terms, keep the original English term in parentheses upon first mention. e.g. "التسارع (Acceleration)".
+    `;
+  } else if (outputLanguage === 'en') {
+    languageInstruction = `
+      **Output Language Policy (FORCED ENGLISH):**
+      - **CRITICAL**: The user has explicitly requested the summary, Q&A, and study plan to be in **ENGLISH**.
+      - Even if the input text is Arabic, you MUST translate and summarize into professional English.
+    `;
+  } else if (outputLanguage === 'mixed') {
+    languageInstruction = `
+      **Output Language Policy (PROFESSIONAL MIXED ARABIC/ENGLISH):**
+      - **Target Style**: Professional Academic Mixed (Scientific Style - Common in Arab Universities/International Schools).
+      - **Rule**: Write the explanations, sentence structure, and connecting text in **Arabic**.
+      - **Exception**: Strictly preserve ALL **Technical Terms**, **Laws**, **Equations**, **Variables**, and **Keywords** in **English**.
+      - **Format**: Use the format: "المصطلح بالإنجليزية (Arabic Translation if needed)" or just "Arabic explanation containing English Term".
+      - **Example**: "إن الـ Mitochondria هي مصنع الطاقة في الخلية وتنتج الـ ATP."
+      - **Q&A/Flashcards**: 
+        - Flashcard Front: English Term / Question.
+        - Flashcard Back: Mixed Language Answer (Arabic explanation with English terms).
+    `;
+  } else {
+    languageInstruction = `
+      **Output Language Policy (SAME AS BOOK - AUTO):**
+      1. **Language Detection**: Detect the primary language of the book accurately.
+         - If Arabic -> Output Arabic.
+         - If English -> Output English.
+         - **Mixed Content**: If the book is "Mixed" (e.g. Science in English for Arabs), preserve the specific mix of English terminology and Arabic explanation used in the book. Do not fully translate if the book itself doesn't.
+    `;
+  }
+
+  // Truncate logic to ensure we don't exceed network payload limits.
+  // 300,000 characters is approx 75k tokens, which is a safe limit for client-side XHR requests.
+  const processedText = text.substring(0, 300000);
 
   const prompt = `
-    النص التالي مستخرج من كتاب دراسي (PDF). قد يحتوي على لغات متعددة (العربية، الإنجليزية، إلخ).
+    The following text is extracted from a textbook (PDF).
     
-    النص:
+    Text:
     "${processedText}"
 
-    أنت معلم خبير، ومصحح امتحانات، ومحلل مناهج ذكي جداً.
-    استخدم قدراتك في التفكير العميق (Thinking) لتحليل هذا المحتوى بدقة متناهية.
+    You are an expert tutor, exam grader, and intelligent curriculum analyst.
+    Use your Thinking capabilities to analyze this content deeply.
 
-    **🔴 تعليمات اللغة الصارمة (Strict Language Policy) - هام جداً:**
-    1. **تحديد اللغة**: حدد اللغة السائدة في الكتاب فوراً.
-    2. **تطابق اللغة (Language Match)**: يجب أن تكون جميع المخرجات (**الملخص**، **الأسئلة**، **البطاقات**، **الخطة**) مكتوبة **بنفس لغة الكتاب تماماً**.
-       - كتاب بالإنجليزية 🇬🇧 ⬅️ ملخص وأسئلة بالإنجليزية.
-       - كتاب بالعربية 🇪🇬 ⬅️ ملخص وأسئلة بالعربية.
-       - كتاب فرنسي 🇫🇷 ⬅️ ملخص وأسئلة بالفرنسية.
-    3. **عدم الترجمة**: لا تقم بترجمة المحتوى إلا إذا كان الكتاب نفسه ثنائي اللغة ويتطلب شرحاً.
-    4. **نقل الأسئلة**: عند استخراج الأسئلة، انسخها **بنصها الأصلي ولغتها الأصلية حرفياً** (Verbatim Extraction) كما وردت في الكتاب. لا تغير صياغة السؤال.
+    **${languageInstruction}**
 
-    المهام المطلوبة:
-    1. **تحليل البيانات الوصفية (Metadata Detection):**
-       - حدد اللغة الأساسية للكتاب (واللغات الثانوية إن وجدت).
-       - حدد المادة الدراسية بدقة.
-       - خمن المرحلة الدراسية (ثانوي، جامعي، إعدادي) بناءً على تعقيد المحتوى.
-       - حاول استنتاج نوع المنهج (حكومي، دولي، IGCSE، SAT، إلخ) من السياق.
-       - اكتب نظرة عامة شاملة عن الكتاب (بنفس لغة الكتاب).
+    **Style Mimicry:**
+    - If the book's style is dry/academic, simplify it for the student but maintain accuracy.
+    - If it uses bullet points, use bullet points.
+    - **Question Extraction**: When extracting questions from the text, preserve them verbatim but ensure they match the requested Output Language.
 
-    2. **التلخيص الذكي (Smart Summarization):**
-       - التزم بالتعليمات التالية للتلخيص بدقة: "${summaryInstruction}".
-       - **هام جداً:** حافظ على تنسيق وهيكلة المعلومات كما في الكتاب الأصلي. استخدم Markdown بذكاء (العناوين H1, H2, H3، القوائم النقطية، والجداول | table | syntax |).
-       - اكتب الملخص بنفس لغة الكتاب.
+    Tasks:
+    1. **Metadata Analysis:**
+       - Detect Subject, Stage, Curriculum in the **Output Language**.
+       - Write a comprehensive Overview in the **Output Language**.
 
-    3. **بنك الأسئلة الشامل (The Exam Vault):**
-       - **المهمة**: استخرج **جميع** الأسئلة الموجودة في الكتاب (سواء في نهاية الفصول، أو الأسئلة الضمنية في الشرح، أو الأمثلة المحلولة).
-       - إذا كان عدد الأسئلة قليلاً، قم بتوليد أسئلة إضافية تغطي كل جزء في المنهج بنمط الامتحان الرسمي لهذه المرحلة وبنفس اللغة.
-       - صنف الأسئلة (اختيار من متعدد، مقالي، مسائل).
-       - أرفق الإجابة النموذجية لكل سؤال (استخدم 🟢 للإجابة الصحيحة).
-       - استخدم الجداول في الأسئلة إذا تطلب الأمر (مثل أسئلة التوصيل أو المقارنة).
+    2. **Colorful Smart Summary:**
+       - Follow instructions: "${summaryInstruction}".
+       - **Formatting**: Use H2, H3 for structure.
+       - **Visual Boxes**: Use (>) before emojis (🔴, 🟢, 💡, ⚠️).
+
+    3. **Exam Vault (Q&A):**
+       - Extract ALL questions (end of chapter, implicit, examples).
+       - **Answers**: Provide standard answers inside green blockquotes (> 🟢 Answer: ...).
+       - Translate questions if necessary to match the Output Language.
     
-    4. **بطاقات الاستذكار (Smart Flashcards):**
-       - قم باستخراج أهم 10-20 مصطلح أو مفهوم أو قانون من الكتاب.
-       - صغها على شكل بطاقات (الوجه: المصطلح/السؤال، الظهر: التعريف/الإجابة) بنفس لغة الكتاب.
+    4. **Smart Flashcards:**
+       - Front: Term/Question (Output Language).
+       - Back: Definition/Answer (Output Language).
 
-    5. **خطة المذاكرة الذكية (Smart Study Planner):**
-       - اقترح جدولاً زمنياً منطقياً لمذاكرة هذا المحتوى بالكامل (اكتب المهام بنفس لغة الكتاب).
-       - قسم الجدول إلى "أيام" أو "وحدات زمنية" (مثلاً: اليوم الأول، اليوم الثاني...).
-       - ضع مهام محددة لكل يوم (قراءة الفصل س، حل تمارين ص، إلخ).
+    5. **Smart Study Planner:**
+       - Logical schedule in the **Output Language**.
   `;
 
   const response = await ai.models.generateContent({
@@ -100,41 +129,41 @@ export const analyzeCurriculum = async (
           metadata: {
             type: Type.OBJECT,
             properties: {
-              language: { type: Type.STRING, description: "Detected primary language of the book (e.g. Arabic, English, Mixed)" },
-              subject: { type: Type.STRING, description: "The subject matter (e.g. Physics, History) in the book's language" },
-              stage: { type: Type.STRING, description: "Educational stage (e.g. Grade 10, University Year 1) in the book's language" },
-              curriculum: { type: Type.STRING, description: "Curriculum type (e.g. General, Cambridge, etc.) in the book's language" },
-              overview: { type: Type.STRING, description: "A comprehensive overview paragraph about the book content in the book's language." }
+              language: { type: Type.STRING, description: "Detected primary language of the book" },
+              subject: { type: Type.STRING, description: "The subject matter in Output Language" },
+              stage: { type: Type.STRING, description: "Educational stage in Output Language" },
+              curriculum: { type: Type.STRING, description: "Curriculum type in Output Language" },
+              overview: { type: Type.STRING, description: "Overview paragraph in Output Language" }
             },
             required: ["language", "subject", "stage", "curriculum", "overview"]
           },
           summary: {
             type: Type.STRING,
-            description: "Markdown formatted detailed summary in the book's language with emoji visual coding and tables."
+            description: "Markdown summary in Output Language using blockquotes (>) for colored boxes."
           },
           qaBank: {
             type: Type.STRING,
-            description: "Markdown formatted Q&A bank containing ALL questions from the book verbatim, using tables where appropriate, in the book's language."
+            description: "Markdown Q&A bank in Output Language."
           },
           flashcards: {
             type: Type.ARRAY,
-            description: "A list of flashcards for active recall study in the book's language.",
+            description: "Flashcards in Output Language.",
             items: {
               type: Type.OBJECT,
               properties: {
-                front: { type: Type.STRING, description: "The term or question on the front of the card" },
-                back: { type: Type.STRING, description: "The definition or answer on the back of the card" }
+                front: { type: Type.STRING, description: "Front text" },
+                back: { type: Type.STRING, description: "Back text" }
               }
             }
           },
           studyPlan: {
             type: Type.ARRAY,
-            description: "A suggested study schedule in the book's language.",
+            description: "Study schedule in Output Language.",
             items: {
               type: Type.OBJECT,
               properties: {
-                day: { type: Type.STRING, description: "Time unit (e.g. Day 1, Week 1)" },
-                tasks: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of tasks for this time unit" }
+                day: { type: Type.STRING, description: "Time unit" },
+                tasks: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Tasks" }
               }
             }
           }
@@ -165,23 +194,20 @@ let chatSession: Chat | null = null;
 export const initChatSession = (apiKey: string, context: string) => {
   const ai = getAiClient(apiKey);
   
-  // We initialize the chat with the book context as a system instruction
+  // Truncate context for chat
+  const safeContext = context.substring(0, 300000);
+
   chatSession = ai.chats.create({
     model: 'gemini-2.5-flash',
     config: {
       systemInstruction: `
-        أنت مساعد دراسي ذكي (Smart Study Buddy Tutor).
-        لديك حق الوصول إلى محتوى الكتاب الدراسي التالي.
+        You are Smart Study Buddy Tutor.
+        Context: "${safeContext}"
         
-        سياق الكتاب:
-        "${context.substring(0, 800000)}"
-        
-        مهمتك هي مساعدة الطالب في فهم هذا الكتاب.
-        - تحدث مع الطالب **بنفس اللغة التي يستخدمها الطالب** في السؤال.
-        - أجب فقط بناءً على المعلومات الواردة في الكتاب.
-        - إذا سأل الطالب عن شيء غير موجود، أخبره بلطف أن ذلك غير مذكور في المنهج.
-        - اشرح المفاهيم الصعبة بتبسيط.
-        - كن مشجعاً وداعماً.
+        Task: Help the student understand this book.
+        - **Language Rule**: Adapt to the user's language. If they ask in Arabic, answer in Arabic. If English, answer in English.
+        - Answer strictly based on the provided context.
+        - Be supportive and clear.
       `,
     },
   });
@@ -194,7 +220,7 @@ export const sendMessageToChat = async (message: string): Promise<string> => {
 
   try {
     const result = await chatSession.sendMessage({ message });
-    return result.text || "عذراً، لم أستطع فهم ذلك.";
+    return result.text || "Sorry, I couldn't understand that.";
   } catch (error) {
     console.error("Chat Error", error);
     throw error;

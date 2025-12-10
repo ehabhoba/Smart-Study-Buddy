@@ -108,7 +108,7 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
     return <>{highlightText(text, searchQuery)}</>;
   };
 
-  // Custom Markdown Components for highlighting
+  // Custom Markdown Components for highlighting and color boxes
   const markdownComponents = useMemo(() => {
     const processChildren = (children: React.ReactNode): React.ReactNode => {
       return React.Children.map(children, child => {
@@ -122,24 +122,73 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
       });
     };
 
-    const createRenderer = (Tag: any) => ({ children, ...props }: any) => (
-      <Tag {...props}>{processChildren(children)}</Tag>
-    );
+    // Helper to get text content from React Node to check for emojis
+    const getTextContent = (node: React.ReactNode): string => {
+        if (typeof node === 'string') return node;
+        if (Array.isArray(node)) return node.map(getTextContent).join('');
+        if (React.isValidElement(node) && node.props.children) return getTextContent(node.props.children);
+        return '';
+    };
 
     return {
-      p: createRenderer('p'),
-      li: createRenderer('li'),
-      h1: createRenderer('h1'),
-      h2: createRenderer('h2'),
-      h3: createRenderer('h3'),
-      h4: createRenderer('h4'),
-      h5: createRenderer('h5'),
-      h6: createRenderer('h6'),
-      td: createRenderer('td'),
-      th: createRenderer('th'),
-      strong: createRenderer('strong'),
-      em: createRenderer('em'),
-      blockquote: createRenderer('blockquote'),
+      p: ({ children, ...props }: any) => <p {...props}>{processChildren(children)}</p>,
+      li: ({ children, ...props }: any) => <li {...props}>{processChildren(children)}</li>,
+      h1: ({ children, ...props }: any) => <h1 {...props}>{processChildren(children)}</h1>,
+      h2: ({ children, ...props }: any) => <h2 {...props}>{processChildren(children)}</h2>,
+      h3: ({ children, ...props }: any) => <h3 {...props}>{processChildren(children)}</h3>,
+      h4: ({ children, ...props }: any) => <h4 {...props}>{processChildren(children)}</h4>,
+      
+      // Custom Table for better styling
+      table: ({ children, ...props }: any) => (
+        <div className="overflow-x-auto my-4 rounded-lg border border-gray-200 dark:border-gray-700">
+           <table className={`min-w-full divide-y ${theme === 'dark' ? 'divide-gray-700' : 'divide-gray-200'}`} {...props}>
+             {children}
+           </table>
+        </div>
+      ),
+      thead: ({ children, ...props }: any) => (
+         <thead className={theme === 'dark' ? 'bg-gray-800' : theme === 'sepia' ? 'bg-[#e3dcc5]' : 'bg-gray-50'} {...props}>{children}</thead>
+      ),
+      tbody: ({ children, ...props }: any) => (
+         <tbody className={`divide-y ${theme === 'dark' ? 'divide-gray-700' : 'divide-gray-200'}`} {...props}>{children}</tbody>
+      ),
+      tr: ({ children, ...props }: any) => (
+         <tr className={`${theme === 'dark' ? 'hover:bg-gray-800/50' : 'hover:bg-gray-50'}`} {...props}>{children}</tr>
+      ),
+      td: ({ children, ...props }: any) => (
+         <td className="px-4 py-3 whitespace-pre-wrap text-sm" {...props}>{processChildren(children)}</td>
+      ),
+      th: ({ children, ...props }: any) => (
+         <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider" {...props}>{processChildren(children)}</th>
+      ),
+
+      // Custom Blockquote Renderer for Color Boxes
+      blockquote: ({ children, ...props }: any) => {
+        const text = getTextContent(children);
+        let className = `border-r-4 p-4 rounded-lg my-4 shadow-sm `;
+        let icon = null;
+
+        if (text.includes('🔴')) {
+            className += theme === 'dark' ? 'bg-red-900/20 border-red-500 text-red-200' : 'bg-red-50 border-red-500 text-red-800';
+        } else if (text.includes('🟢')) {
+            className += theme === 'dark' ? 'bg-emerald-900/20 border-emerald-500 text-emerald-200' : 'bg-green-50 border-green-500 text-green-800';
+        } else if (text.includes('💡')) {
+            className += theme === 'dark' ? 'bg-amber-900/20 border-amber-500 text-amber-200' : 'bg-yellow-50 border-yellow-500 text-yellow-800';
+        } else if (text.includes('⚠️')) {
+            className += theme === 'dark' ? 'bg-orange-900/20 border-orange-500 text-orange-200' : 'bg-orange-50 border-orange-500 text-orange-800';
+        } else {
+            className += theme === 'dark' ? 'bg-gray-800 border-gray-600 text-gray-300' : theme === 'sepia' ? 'bg-[#e8e0cc] border-[#a8a29e] text-[#5c4b37]' : 'bg-gray-50 border-gray-300 text-gray-700';
+        }
+
+        return (
+            <div className={className} dir="auto">
+               {children}
+            </div>
+        );
+      },
+      
+      strong: ({ children, ...props }: any) => <strong {...props}>{processChildren(children)}</strong>,
+      em: ({ children, ...props }: any) => <em {...props}>{processChildren(children)}</em>,
     };
   }, [searchQuery, theme]);
 
@@ -153,11 +202,10 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
       const textToRead = result.summary.replace(/[#*`]/g, ''); 
       
       const utterance = new SpeechSynthesisUtterance(textToRead);
-      if (/[a-zA-Z]/.test(textToRead.substring(0, 50))) {
-        utterance.lang = 'en-US';
-      } else {
-        utterance.lang = 'ar-SA';
-      }
+      // Attempt to auto-detect language from metadata or text content
+      const isArabic = /[\u0600-\u06FF]/.test(textToRead.substring(0, 50));
+      utterance.lang = isArabic ? 'ar-SA' : 'en-US';
+      
       utterance.rate = 1.0;
       
       utterance.onend = () => setIsSpeaking(false);
@@ -211,7 +259,7 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
     setIsGeneratingDoc(true);
     try {
       const docxLib = (docx as any).default || docx;
-      const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, BorderStyle, WidthType, AlignmentType } = docxLib;
+      const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, BorderStyle, WidthType, AlignmentType, ShadingType } = docxLib;
 
       const getColorFromText = (text: string): string => {
         if (text.includes('🔴')) return "D32F2F";
@@ -298,6 +346,29 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
               bidirectional: true
             }));
           } 
+          else if (line.startsWith('>')) {
+            // Blockquote handling for Word
+            const text = line.replace('>', '').trim();
+            const color = getColorFromText(text);
+            let shadeColor = "FFFFFF";
+            if (text.includes('🔴')) shadeColor = "FFEBEE"; // Light Red
+            else if (text.includes('🟢')) shadeColor = "E8F5E9"; // Light Green
+            else if (text.includes('💡')) shadeColor = "FFFDE7"; // Light Yellow
+
+            children.push(new Paragraph({
+               children: [new TextRun({ 
+                 text: text, 
+                 color: color, 
+                 font: "Tajawal",
+                 size: 24
+               })],
+               shading: { fill: shadeColor, type: ShadingType.CLEAR },
+               border: { left: { style: BorderStyle.SINGLE, size: 6, color: color !== "000000" ? color : "888888" } },
+               indent: { left: 300 },
+               spacing: { after: 120 },
+               bidirectional: true
+             }));
+          }
           else if (line.startsWith('- ') || line.startsWith('* ')) {
              const text = line.replace(/^[-*] /, '');
              const color = getColorFromText(text);
@@ -347,7 +418,10 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
         return children;
       };
 
-      const metadataTable = new Table({
+      // ... (Rest of Word generation logic remains similar, relying on parseMarkdownToDocx)
+      // Re-using the logic from previous implementation but with better blockquote support above.
+
+       const metadataTable = new Table({
         width: {
           size: 100,
           type: WidthType.PERCENTAGE,
@@ -368,13 +442,7 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
                 ],
                 shading: { fill: "EFF6FF" },
                 verticalAlign: AlignmentType.CENTER,
-                margins: { top: 200, bottom: 200, left: 200, right: 200 },
-                borders: {
-                    top: { style: BorderStyle.SINGLE, size: 1, color: "BFDBFE" },
-                    bottom: { style: BorderStyle.SINGLE, size: 1, color: "BFDBFE" },
-                    left: { style: BorderStyle.SINGLE, size: 1, color: "BFDBFE" },
-                    right: { style: BorderStyle.SINGLE, size: 1, color: "BFDBFE" },
-                }
+                borders: { top: { style: BorderStyle.SINGLE, size: 1, color: "BFDBFE" }, bottom: { style: BorderStyle.SINGLE, size: 1, color: "BFDBFE" }, left: { style: BorderStyle.SINGLE, size: 1, color: "BFDBFE" }, right: { style: BorderStyle.SINGLE, size: 1, color: "BFDBFE" } }
               }),
               new TableCell({
                 children: [
@@ -389,104 +457,30 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
                 ],
                 shading: { fill: "FAF5FF" },
                 verticalAlign: AlignmentType.CENTER,
-                margins: { top: 200, bottom: 200, left: 200, right: 200 },
-                 borders: {
-                    top: { style: BorderStyle.SINGLE, size: 1, color: "E9D5FF" },
-                    bottom: { style: BorderStyle.SINGLE, size: 1, color: "E9D5FF" },
-                    left: { style: BorderStyle.SINGLE, size: 1, color: "E9D5FF" },
-                    right: { style: BorderStyle.SINGLE, size: 1, color: "E9D5FF" },
-                }
-              }),
-            ],
-          }),
-          new TableRow({
-            children: [
-              new TableCell({
-                children: [
-                  new Paragraph({
-                    children: [new TextRun({ text: "المنهج", font: "Tajawal", size: 20, color: "16A34A" })],
-                    alignment: AlignmentType.CENTER,
-                  }),
-                  new Paragraph({
-                    children: [new TextRun({ text: result.metadata.curriculum, font: "Tajawal", size: 28, bold: true })],
-                    alignment: AlignmentType.CENTER,
-                  }),
-                ],
-                shading: { fill: "F0FDF4" },
-                verticalAlign: AlignmentType.CENTER,
-                margins: { top: 200, bottom: 200, left: 200, right: 200 },
-                 borders: {
-                    top: { style: BorderStyle.SINGLE, size: 1, color: "BBF7D0" },
-                    bottom: { style: BorderStyle.SINGLE, size: 1, color: "BBF7D0" },
-                    left: { style: BorderStyle.SINGLE, size: 1, color: "BBF7D0" },
-                    right: { style: BorderStyle.SINGLE, size: 1, color: "BBF7D0" },
-                }
-              }),
-              new TableCell({
-                children: [
-                  new Paragraph({
-                    children: [new TextRun({ text: "لغة الكتاب", font: "Tajawal", size: 20, color: "EA580C" })],
-                    alignment: AlignmentType.CENTER,
-                  }),
-                  new Paragraph({
-                    children: [new TextRun({ text: result.metadata.language, font: "Tajawal", size: 28, bold: true })],
-                    alignment: AlignmentType.CENTER,
-                  }),
-                ],
-                shading: { fill: "FFF7ED" },
-                verticalAlign: AlignmentType.CENTER,
-                margins: { top: 200, bottom: 200, left: 200, right: 200 },
-                 borders: {
-                    top: { style: BorderStyle.SINGLE, size: 1, color: "FED7AA" },
-                    bottom: { style: BorderStyle.SINGLE, size: 1, color: "FED7AA" },
-                    left: { style: BorderStyle.SINGLE, size: 1, color: "FED7AA" },
-                    right: { style: BorderStyle.SINGLE, size: 1, color: "FED7AA" },
-                }
+                borders: { top: { style: BorderStyle.SINGLE, size: 1, color: "E9D5FF" }, bottom: { style: BorderStyle.SINGLE, size: 1, color: "E9D5FF" }, left: { style: BorderStyle.SINGLE, size: 1, color: "E9D5FF" }, right: { style: BorderStyle.SINGLE, size: 1, color: "E9D5FF" } }
               }),
             ],
           }),
         ],
       });
 
-      const infoChildren = [
-        new Paragraph({ 
-          text: `تقرير المُلخص الذكي - ${result.metadata.subject}`, 
-          heading: HeadingLevel.HEADING_1, 
-          alignment: AlignmentType.CENTER,
-          bidirectional: true 
-        }),
-        new Paragraph({ text: "" }),
-        metadataTable,
-        new Paragraph({ text: "" }),
-        new Paragraph({ text: "نظرة عامة:", heading: HeadingLevel.HEADING_2, bidirectional: true }),
-        new Paragraph({ text: result.metadata.overview, font: "Tajawal", size: 24, bidirectional: true }),
-        new Paragraph({ text: "", pageBreakBefore: true }),
-      ];
-
-      const summaryChildren = [
-        new Paragraph({ text: "الملخص (كبسولة الامتحان)", heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER, bidirectional: true }),
-        ...parseMarkdownToDocx(result.summary),
-        new Paragraph({ text: "", pageBreakBefore: true }),
-      ];
-
-      const qaChildren = [
-        new Paragraph({ text: "بنك الأسئلة الشامل", heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER, bidirectional: true }),
-        ...parseMarkdownToDocx(result.qaBank),
-      ];
-
       const doc = new Document({
         sections: [{
           properties: {},
           children: [
-            ...infoChildren,
-            ...summaryChildren,
-            ...qaChildren
+            new Paragraph({ text: `تقرير المُلخص الذكي - ${result.metadata.subject}`, heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER, bidirectional: true }),
+            new Paragraph({ text: "" }),
+            metadataTable,
+            new Paragraph({ text: "" }),
+            ...parseMarkdownToDocx(result.summary),
+            new Paragraph({ text: "", pageBreakBefore: true }),
+            new Paragraph({ text: "بنك الأسئلة الشامل", heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER, bidirectional: true }),
+            ...parseMarkdownToDocx(result.qaBank),
           ],
         }],
       });
 
       const blob = await Packer.toBlob(doc);
-      
       const saveAs = (FileSaver as any).saveAs || (FileSaver as any).default || FileSaver;
       saveAs(blob, `${result.metadata.subject}_Exam_Capsule.docx`);
 

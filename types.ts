@@ -4,6 +4,9 @@ export enum SummaryLevel {
   COMPREHENSIVE = 'comprehensive',
 }
 
+export type Language = 'ar' | 'en';
+export type OutputLanguage = 'original' | 'ar' | 'en' | 'mixed';
+
 export interface BookMetadata {
   language: string;
   subject: string;
