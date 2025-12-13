@@ -1,12 +1,15 @@
+
 import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import FileUpload from './components/FileUpload';
 import ResultView from './components/ResultView';
+import SeoEmpire from './components/SeoEmpire';
 import { AppStatus, SummaryLevel, AnalysisResult, Language, OutputLanguage } from './types';
 import { extractTextFromPdf } from './services/pdfService';
 import { analyzeCurriculum } from './services/geminiService';
 import { Loader2, Sparkles, FileCheck, AlertTriangle, BrainCircuit, Target, BookOpen, Layers, Globe, Languages } from 'lucide-react';
 import { translations } from './utils/translations';
+import { KEYWORD_CLUSTERS, generateSeoContent } from './utils/seoConstants';
 
 const App: React.FC = () => {
   const [apiKey, setApiKey] = useState<string>('');
@@ -23,6 +26,9 @@ const App: React.FC = () => {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // SEO State
+  const [dynamicTitle, setDynamicTitle] = useState('');
+
   const t = translations[language];
 
   // Initialize from local storage
@@ -32,6 +38,13 @@ const App: React.FC = () => {
     
     const savedLang = localStorage.getItem('app_language') as Language;
     if (savedLang) setLanguage(savedLang);
+
+    // Initial SEO Check on Load
+    handleHashChange();
+    
+    // Listen for hash changes
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
   // Save key
@@ -39,12 +52,47 @@ const App: React.FC = () => {
     if (apiKey) localStorage.setItem('gemini_api_key', apiKey);
   }, [apiKey]);
 
-  // Sync HTML dir/lang
+  // Sync HTML dir/lang & Document Title
   useEffect(() => {
     document.documentElement.lang = language;
     document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
     localStorage.setItem('app_language', language);
-  }, [language]);
+    
+    // Dynamic Title Logic
+    if (dynamicTitle) {
+       document.title = dynamicTitle;
+    } else {
+        if (language === 'ar') {
+        document.title = fileName 
+            ? `${fileName} | المُلخص الذكي`
+            : 'المُلخص الذكي: تحويل الصور و PDF إلى ملخصات | Smart Study Buddy';
+        } else {
+        document.title = fileName
+            ? `${fileName} | Smart Study Buddy`
+            : 'Smart Study Buddy | AI Curriculum Tutor & PDF Converter';
+        }
+    }
+
+  }, [language, fileName, dynamicTitle]);
+
+  const handleHashChange = () => {
+      const hash = window.location.hash.replace('#/', '').replace(/-/g, ' ');
+      if (hash) {
+          // Decode URI component to handle Arabic characters in URL
+          try {
+            const decodedHash = decodeURIComponent(hash);
+            setDynamicTitle(`${decodedHash} | مجاناً بالذكاء الاصطناعي`);
+          } catch (e) {
+             console.log("Hash decode error", e);
+          }
+      }
+  };
+
+  const handleSeoNavigate = (keyword: string) => {
+      window.location.hash = `/${keyword.replace(/\s+/g, '-')}`;
+      setDynamicTitle(`${keyword} | أداة الذكاء الاصطناعي المجانية`);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const handleFileSelect = async (file: File) => {
     setStatus(AppStatus.READING);
@@ -95,6 +143,9 @@ const App: React.FC = () => {
     setResult(null);
     setError(null);
     setProgress(0);
+    setFileName('');
+    setDynamicTitle('');
+    window.history.pushState("", document.title, window.location.pathname + window.location.search);
   };
 
   return (
@@ -114,16 +165,28 @@ const App: React.FC = () => {
         {status === AppStatus.IDLE && (
           <div className="max-w-2xl mx-auto mt-10">
             <div className="text-center mb-10">
-              <h2 className="text-3xl font-extrabold text-gray-900 mb-4">
-                {language === 'ar' ? 'حوّل كتبك الدراسية إلى كبسولات امتحانات ذكية' : 'Turn Your Textbooks into Smart Exam Capsules'}
+              <h2 className="text-3xl font-extrabold text-gray-900 mb-4 leading-tight">
+                {dynamicTitle ? (
+                    <span className="text-primary-600">{dynamicTitle.split('|')[0]}</span>
+                ) : (
+                    language === 'ar' ? 'حوّل كتبك الدراسية إلى ملخصات ذكية' : 'Turn Textbooks into Smart Summaries'
+                )}
               </h2>
               <p className="text-gray-600 text-lg">
                  {language === 'ar' 
-                   ? 'ارفع كتابك PDF، وسيقوم الذكاء الاصطناعي بتحليله، وتكثيفه بنسبة 90%، واستخراج بنك الأسئلة الشامل.'
-                   : 'Upload your PDF. AI will analyze it, compress it by 90%, and extract a comprehensive Q&A bank.'}
+                   ? 'ارفع ملف PDF أو صورة، وسيقوم الذكاء الاصطناعي بتحليله، تلخيصه، واستخراج الأسئلة. أداة شاملة للكتابة والتحويل.'
+                   : 'Upload PDF or Image. AI will analyze, summarize, and extract questions. The ultimate AI Writing & Conversion tool.'}
               </p>
             </div>
             <FileUpload onFileSelect={handleFileSelect} language={language} />
+            
+            {/* Rich SEO Content Injection */}
+            <div className="mt-20 border-t border-gray-100 pt-10">
+               <div 
+                 className="prose prose-sm md:prose-base max-w-none text-gray-500 bg-white p-6 rounded-2xl shadow-sm border border-gray-100"
+                 dangerouslySetInnerHTML={{ __html: generateSeoContent() }}
+               />
+            </div>
           </div>
         )}
 
@@ -274,12 +337,17 @@ const App: React.FC = () => {
              <div className="flex justify-between items-center mb-4">
                <h2 className="text-2xl font-bold text-gray-800">{language === 'ar' ? 'كبسولة المراجعة النهائية' : 'Final Review Capsule'}</h2>
                <button onClick={reset} className="text-primary-600 hover:underline text-sm font-medium">
-                 {language === 'ar' ? 'تحليل كتاب آخر' : 'Analyze another book'}
+                 {language === 'ar' ? 'تحليل ملف آخر' : 'Analyze another file'}
                </button>
              </div>
              {/* Pass apiKey and extractedText to enable Chat */}
              <ResultView result={result} apiKey={apiKey} originalText={extractedText} language={language} />
            </div>
+        )}
+
+        {/* SEO EMPIRE SECTION - Only on IDLE to avoid cluttering results */}
+        {status === AppStatus.IDLE && (
+            <SeoEmpire onNavigate={handleSeoNavigate} />
         )}
       </main>
 

@@ -1,19 +1,53 @@
+
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>المُلخص الذكي للمناهج</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- SEO Meta Tags (Enhanced) -->
+    <title>المُلخص الذكي | تحويل الصور الى pdf - كتابة مقال بالذكاء الاصطناعي - pdf to word</title>
+    <meta name="description" content="أفضل أداة مجانية للطلاب والباحثين: تحويل الصور الى pdf، تحويل pdf to word، كتابة مقالات بالذكاء الاصطناعي، تلخيص النصوص، واستخراج الأسئلة. يدعم العربية.">
+    
+    <!-- Massive Keyword Injection -->
+    <meta name="keywords" content="تحويل الصور الى pdf, تحويل pdf to word, تحويل صورة الى pdf, الذكاء الاصطناعي, كتابة مقال بالذكاء الاصطناعي, تحويل الصور ل pdf, تحويل jpg الى pdf, pdf summary, ai summarizer, استخراج النصوص من الصور, تحويل الصور الى نص, دمج pdf, تعديل pdf online, pdf to powerpoint, ai writer, كتابة محتوى بالذكاء الاصطناعي, حل اسئلة بالذكاء الاصطناعي, ملخص مناهج, تعليم ذكي, Gemini AI, pdf tools, convert image to pdf, free pdf converter">
+    
+    <meta name="author" content="Smart Study Buddy Team">
+    <meta name="theme-color" content="#0ea5e9">
+    <meta name="robots" content="index, follow">
+
+    <!-- Open Graph / Facebook / WhatsApp -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://smart-study-buddy.vercel.app/">
+    <meta property="og:title" content="المُلخص الذكي - إمبراطورية أدوات الذكاء الاصطناعي">
+    <meta property="og:description" content="أداة واحدة تغنيك عن الجميع: تحويل الصور الى PDF، كتابة مقالات، وتلخيص كتب بضغطة زر.">
+    <meta property="og:image" content="/logo.svg">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://smart-study-buddy.vercel.app/">
+    <meta property="twitter:title" content="Smart Study Buddy | AI Tools Empire">
+    <meta property="twitter:description" content="Convert Images to PDF, AI Writing, and Summarization all in one place.">
+    <meta property="twitter:image" content="/logo.svg">
+
+    <!-- Icons & Manifest -->
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <link rel="apple-touch-icon" href="/logo.svg">
+    <link rel="manifest" href="/manifest.json">
+
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
         theme: {
           extend: {
             fontFamily: {
               sans: ['Tajawal', 'sans-serif'],
+              inter: ['Inter', 'sans-serif'],
             },
             colors: {
               primary: {
@@ -35,6 +69,9 @@
       body {
         font-family: 'Tajawal', sans-serif;
         background-color: #f8fafc;
+      }
+      body[dir="ltr"] {
+        font-family: 'Inter', sans-serif;
       }
       /* Custom Scrollbar for Markdown areas */
       .markdown-body::-webkit-scrollbar {
@@ -66,23 +103,62 @@
         transform: rotateY(180deg);
       }
     </style>
-  <script type="importmap">
+
+    <!-- Structured Data (JSON-LD) for Search Empire -->
+    <script type="application/ld+json">
+    [
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Smart Study Buddy AI",
+        "alternateName": "المُلخص الذكي",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "Web",
+        "description": "منصة ذكاء اصطناعي شاملة لتحويل الصور الى pdf، كتابة مقالات، وتلخيص النصوص.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "featureList": "Image to PDF, PDF to Word, AI Writing, PDF Summarizer"
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Image to PDF Converter",
+        "alternateName": "محول الصور الى بي دي اف",
+        "applicationCategory": "UtilitiesApplication",
+        "description": "أداة مجانية لتحويل الصور (JPG, PNG) إلى ملفات PDF عالية الجودة.",
+        "url": "https://smart-study-buddy.vercel.app/#/image-to-pdf"
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "AI Content Writer",
+        "alternateName": "كاتب المقالات الذكي",
+        "applicationCategory": "ProductivityApplication",
+        "description": "روبوت كتابة مقالات ومحتوى بالذكاء الاصطناعي مجاناً.",
+        "url": "https://smart-study-buddy.vercel.app/#/ai-writer"
+      }
+    ]
+    </script>
+<script type="importmap">
 {
   "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "pdfjs-dist": "https://aistudiocdn.com/pdfjs-dist@^5.4.449",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.32.0",
     "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
     "react-markdown": "https://aistudiocdn.com/react-markdown@^10.1.0",
-    "xlsx": "https://aistudiocdn.com/xlsx@^0.18.5",
-    "react/": "https://aistudiocdn.com/react@^19.2.1/",
-    "react": "https://aistudiocdn.com/react@^19.2.1",
-    "file-saver": "https://aistudiocdn.com/file-saver@^2.0.5",
     "remark-gfm": "https://aistudiocdn.com/remark-gfm@^4.0.1",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
     "docx": "https://aistudiocdn.com/docx@^9.5.1",
-    "pdfjs-dist": "https://aistudiocdn.com/pdfjs-dist@^5.4.449",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
-    "vite": "https://aistudiocdn.com/vite@^7.2.6",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
-    "html-to-image": "https://aistudiocdn.com/html-to-image@^1.11.13"
+    "file-saver": "https://aistudiocdn.com/file-saver@^2.0.5",
+    "xlsx": "https://aistudiocdn.com/xlsx@^0.18.5",
+    "html-to-image": "https://aistudiocdn.com/html-to-image@^1.11.13",
+    "vite": "https://aistudiocdn.com/vite@^7.2.7",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.2"
   }
 }
 </script>
@@ -90,5 +166,16 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
+    
+    <!-- Hidden SEO Content for Crawlers -->
+    <div style="display:none;">
+      <h1>تحويل الصور الى pdf - كتابة مقال بالذكاء الاصطناعي - pdf to word</h1>
+      <p>
+        نقدم لكم أفضل موقع لـ تحويل الصور الى pdf بجودة عالية. يمكنك استخدام أدواتنا لـ تحويل jpg الى pdf، 
+        تحويل word الى pdf، وحتى كتابة مقالات بالذكاء الاصطناعي مجانا.
+        خدماتنا تشمل: تحويل الصور لملف pdf، pdf to powerpoint، تعديل pdf online، 
+        دمج pdf، استخراج النصوص من الصور، والمزيد من أدوات الذكاء الاصطناعي التعليمية.
+      </p>
+    </div>
   </body>
 </html>

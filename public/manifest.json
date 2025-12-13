@@ -1,0 +1,17 @@
+{
+  "name": "Smart Study Buddy | المُلخص الذكي",
+  "short_name": "SmartBuddy",
+  "description": "An intelligent AI-powered curriculum summarizer. Convert PDFs into exam capsules, flashcards, and study plans.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0ea5e9",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512"
+    }
+  ]
+}

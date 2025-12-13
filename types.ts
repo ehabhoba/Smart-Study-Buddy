@@ -20,6 +20,13 @@ export interface Flashcard {
   back: string;
 }
 
+export interface QuizQuestion {
+  question: string;
+  options: string[];
+  correctAnswerIndex: number;
+  explanation: string;
+}
+
 export interface StudyItem {
   day: string;
   tasks: string[];
@@ -30,6 +37,7 @@ export interface AnalysisResult {
   summary: string;
   qaBank: string;
   flashcards: Flashcard[];
+  quiz: QuizQuestion[];
   studyPlan: StudyItem[];
 }
 
@@ -51,4 +59,8 @@ export interface ChatMessage {
   role: 'user' | 'model';
   text: string;
   isThinking?: boolean;
+  groundingSources?: {
+    title: string;
+    url: string;
+  }[];
 }

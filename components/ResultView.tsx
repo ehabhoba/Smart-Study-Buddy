@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { AnalysisResult, ChatMessage } from '../types';
-import { Book, FileText, HelpCircle, Download, Printer, MessageCircle, Send, User, Bot, Sparkles, Copy, Check, FileDown, Layers, Calendar, ChevronRight, ChevronLeft, RotateCw, Volume2, StopCircle, Settings, Sun, Moon, Coffee, Type, Search, X, Image as ImageIcon, Table as TableIcon } from 'lucide-react';
+import { AnalysisResult, ChatMessage, Language } from '../types';
+import { Book, FileText, HelpCircle, Download, Printer, MessageCircle, Send, User, Bot, Sparkles, Copy, Check, FileDown, Layers, Calendar, ChevronRight, ChevronLeft, RotateCw, Volume2, StopCircle, Settings, Sun, Moon, Coffee, Type, Search, X, Image as ImageIcon, Table as TableIcon, CheckCircle, XCircle, Globe, ExternalLink, BrainCircuit } from 'lucide-react';
 import { initChatSession, sendMessageToChat } from '../services/geminiService';
 import * as docx from 'docx';
 import * as FileSaver from 'file-saver';
@@ -13,13 +13,14 @@ interface ResultViewProps {
   result: AnalysisResult;
   apiKey: string;
   originalText: string;
+  language: Language;
 }
 
 type Theme = 'light' | 'dark' | 'sepia';
 type FontSize = 'sm' | 'base' | 'lg';
 
-const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText }) => {
-  const [activeTab, setActiveTab] = useState<'info' | 'summary' | 'flashcards' | 'plan' | 'qa' | 'chat'>('summary');
+const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText, language }) => {
+  const [activeTab, setActiveTab] = useState<'info' | 'summary' | 'flashcards' | 'quiz' | 'plan' | 'qa' | 'chat'>('summary');
   const [copied, setCopied] = useState(false);
   const [isGeneratingDoc, setIsGeneratingDoc] = useState(false);
   
@@ -37,15 +38,17 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
   const [isFlipped, setIsFlipped] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
+  // Quiz State
+  const [quizAnswers, setQuizAnswers] = useState<{[key: number]: number}>({});
+  const [showQuizResults, setShowQuizResults] = useState(false);
+
   // Text-to-Speech State
   const [isSpeaking, setIsSpeaking] = useState(false);
   const synthRef = useRef<SpeechSynthesis | null>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   
   // Chat State
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'model', text: 'أهلاً بك! أنا مساعدك الذكي لهذا الكتاب. يمكنك سؤالي عن أي نقطة غامضة، أو طلب شرح إضافي، أو حتى طلب اختبار سريع.' }
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -54,6 +57,11 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
   useEffect(() => {
     if (apiKey && originalText) {
       initChatSession(apiKey, originalText);
+      // Set initial welcome message based on language
+      const welcomeMsg = language === 'ar' 
+        ? 'أهلاً بك! أنا مساعدك الذكي المتصل بـ Google. يمكنك سؤالي عن الكتاب أو البحث عن معلومات إضافية من الويب.'
+        : 'Welcome! I am your smart assistant connected to Google Search. Ask me about the book or research topics on the web.';
+      setMessages([{ role: 'model', text: welcomeMsg }]);
     }
     synthRef.current = window.speechSynthesis;
     
@@ -62,7 +70,7 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
          synthRef.current.cancel();
        }
     };
-  }, [apiKey, originalText]);
+  }, [apiKey, originalText, language]);
 
   // Auto-scroll chat
   useEffect(() => {
@@ -215,6 +223,17 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
       synthRef.current?.speak(utterance);
       setIsSpeaking(true);
     }
+  };
+
+  // --- QUIZ LOGIC ---
+  const handleQuizOptionSelect = (questionIndex: number, optionIndex: number) => {
+    // If already answered, do nothing
+    if (quizAnswers.hasOwnProperty(questionIndex)) return;
+
+    setQuizAnswers(prev => ({
+      ...prev,
+      [questionIndex]: optionIndex
+    }));
   };
 
   // --- EXPORT LOGIC ---
@@ -418,9 +437,6 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
         return children;
       };
 
-      // ... (Rest of Word generation logic remains similar, relying on parseMarkdownToDocx)
-      // Re-using the logic from previous implementation but with better blockquote support above.
-
        const metadataTable = new Table({
         width: {
           size: 100,
@@ -518,8 +534,8 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
     try {
       const response = await sendMessageToChat(userMsg);
       // Ensure response is valid string
-      const safeResponse = typeof response === 'string' ? response : "عذراً، حدث خطأ في تنسيق الاستجابة.";
-      setMessages(prev => [...prev, { role: 'model', text: safeResponse }]);
+      const safeResponse = typeof response.text === 'string' ? response.text : "عذراً، حدث خطأ في تنسيق الاستجابة.";
+      setMessages(prev => [...prev, { role: 'model', text: safeResponse, groundingSources: response.sources }]);
     } catch (error) {
       console.error("Chat Error Handled:", error);
       setMessages(prev => [...prev, { role: 'model', text: 'عذراً، حدث خطأ في الاتصال أو انتهت الجلسة. يرجى المحاولة مرة أخرى.' }]);
@@ -613,27 +629,31 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
         <div className="flex bg-transparent rounded-lg p-1 overflow-x-auto max-w-full gap-1 order-2 md:order-1 w-full md:w-auto">
           <button onClick={() => setActiveTab('info')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 whitespace-nowrap ${buttonClasses(activeTab === 'info')}`}>
             <Book size={16} />
-            البيانات
+            {language === 'ar' ? 'البيانات' : 'Info'}
           </button>
           <button onClick={() => setActiveTab('summary')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 whitespace-nowrap ${buttonClasses(activeTab === 'summary')}`}>
             <FileText size={16} />
-            كبسولة الامتحان
+            {language === 'ar' ? 'الملخص' : 'Summary'}
           </button>
            <button onClick={() => setActiveTab('flashcards')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 whitespace-nowrap ${buttonClasses(activeTab === 'flashcards')}`}>
             <Layers size={16} />
-            بطاقات
+            {language === 'ar' ? 'بطاقات' : 'Cards'}
+          </button>
+          <button onClick={() => setActiveTab('quiz')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 whitespace-nowrap ${buttonClasses(activeTab === 'quiz')}`}>
+            <CheckCircle size={16} />
+            {language === 'ar' ? 'اختبار' : 'Quiz'}
           </button>
            <button onClick={() => setActiveTab('plan')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 whitespace-nowrap ${buttonClasses(activeTab === 'plan')}`}>
             <Calendar size={16} />
-            الخطة
+            {language === 'ar' ? 'الخطة' : 'Plan'}
           </button>
           <button onClick={() => setActiveTab('qa')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 whitespace-nowrap ${buttonClasses(activeTab === 'qa')}`}>
             <HelpCircle size={16} />
-            الأسئلة
+            {language === 'ar' ? 'الأسئلة' : 'Q&A'}
           </button>
           <button onClick={() => setActiveTab('chat')} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 whitespace-nowrap ${buttonClasses(activeTab === 'chat')}`}>
-            <MessageCircle size={16} />
-            المساعد
+            <Globe size={16} />
+            {language === 'ar' ? 'بحث' : 'Search'}
           </button>
         </div>
 
@@ -645,7 +665,7 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
                    <Search size={16} className="text-gray-400" />
                    <input 
                     type="text" 
-                    placeholder="بحث..." 
+                    placeholder={language === 'ar' ? "بحث..." : "Search..."}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full bg-transparent border-none outline-none text-sm min-w-[60px]"
@@ -705,14 +725,14 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
            </div>
 
            {/* Other Actions */}
-           {activeTab !== 'chat' && (
+           {activeTab !== 'chat' && activeTab !== 'quiz' && (
              <button onClick={handleCopy} className={`p-2 rounded-lg transition-colors border border-transparent hidden sm:block ${theme === 'dark' ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:text-primary-600 hover:bg-white hover:border-gray-200'}`} title="نسخ النص">
                {copied ? <Check size={20} className="text-green-500" /> : <Copy size={20} />}
              </button>
            )}
            <button onClick={generateWordDocument} disabled={isGeneratingDoc} className="flex items-center gap-2 px-3 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm whitespace-nowrap" title="تحميل ملف Word منسق">
              {isGeneratingDoc ? <span className="animate-spin">⌛</span> : <FileDown size={18} />}
-             <span className="hidden sm:inline">تحميل Word</span>
+             <span className="hidden sm:inline">Word</span>
            </button>
         </div>
       </div>
@@ -775,7 +795,7 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
                   className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all ${isSpeaking ? 'bg-red-100 text-red-600 animate-pulse' : theme === 'dark' ? 'bg-gray-800 text-primary-400 hover:bg-gray-700' : 'bg-primary-50 text-primary-600 hover:bg-primary-100'}`}
                  >
                    {isSpeaking ? <StopCircle size={18} /> : <Volume2 size={18} />}
-                   {isSpeaking ? 'إيقاف القراءة' : 'استمع للملخص'}
+                   {isSpeaking ? 'إيقاف' : 'استمع'}
                  </button>
               </div>
               <ReactMarkdown 
@@ -788,64 +808,226 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
             </div>
           )}
 
-           {/* Flashcards Tab */}
+          {/* Flashcards Tab */}
           {activeTab === 'flashcards' && (
-             <div className="animate-in fade-in duration-300 max-w-2xl mx-auto flex flex-col items-center justify-center min-h-[400px]" dir="auto">
-               <div className="w-full flex justify-end gap-2 mb-4">
-                 <button onClick={handleDownloadImage} className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${theme === 'dark' ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-300 hover:bg-gray-50'}`} title="تحميل البطاقة كصورة">
-                   <ImageIcon size={14} />
-                   صورة
-                 </button>
-                  <button onClick={handleExportExcel} className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${theme === 'dark' ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-300 hover:bg-gray-50'}`} title="تصدير الكل لملف Excel">
-                   <TableIcon size={14} />
-                   Excel
-                 </button>
+             <div className="animate-in fade-in duration-300 max-w-2xl mx-auto flex flex-col items-center justify-center min-h-[500px]" dir="auto">
+               
+               {/* Toolbar for Flashcards */}
+               <div className="w-full flex justify-between items-center mb-6 px-2">
+                 <div className="text-sm font-medium opacity-60">
+                 </div>
+                 <div className="flex gap-2">
+                    <button onClick={handleDownloadImage} className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors shadow-sm ${theme === 'dark' ? 'bg-gray-800 border-gray-600 hover:bg-gray-700 text-gray-200' : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-700'}`} title={language === 'ar' ? "تحميل البطاقة كصورة" : "Download Image"}>
+                      <ImageIcon size={14} />
+                      {language === 'ar' ? 'صورة' : 'Image'}
+                    </button>
+                    <button onClick={handleExportExcel} className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors shadow-sm ${theme === 'dark' ? 'bg-gray-800 border-gray-600 hover:bg-gray-700 text-gray-200' : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-700'}`} title={language === 'ar' ? "تصدير الكل لملف Excel" : "Export Excel"}>
+                      <TableIcon size={14} />
+                      Excel
+                    </button>
+                 </div>
                </div>
 
                {result.flashcards && result.flashcards.length > 0 ? (
                  <>
-                    <div className="relative w-full aspect-[1.6] perspective-1000 mb-8 cursor-pointer" onClick={() => setIsFlipped(!isFlipped)}>
-                       <div className={`relative w-full h-full text-center transition-transform duration-700 transform-style-3d shadow-xl rounded-2xl ${isFlipped ? 'rotate-y-180' : ''}`} ref={cardRef}>
-                          {/* Front */}
-                          <div className="absolute w-full h-full backface-hidden bg-gradient-to-br from-primary-500 to-primary-600 text-white rounded-2xl p-8 flex flex-col items-center justify-center border-2 border-primary-400">
-                             <h3 className="text-lg font-medium opacity-80 mb-4">المصطلح / السؤال</h3>
-                             <p className="text-3xl font-bold leading-tight">
-                                <Highlightable text={result.flashcards[currentCardIndex].front} />
-                             </p>
-                             <div className="mt-8 text-sm opacity-70 flex items-center gap-2 dont-print">
-                               <RotateCw size={14} />
-                               اضغط للقلب
+                    <div className="relative w-full aspect-[1.7] perspective-1000 mb-8 cursor-pointer group select-none" onClick={() => setIsFlipped(!isFlipped)}>
+                       <div className={`relative w-full h-full text-center transition-all duration-500 transform-style-3d rounded-2xl ${isFlipped ? 'rotate-y-180' : 'hover:scale-[1.02] shadow-2xl hover:shadow-primary-500/20'}`} ref={cardRef}>
+                          
+                          {/* Front Side */}
+                          <div className={`absolute w-full h-full backface-hidden rounded-2xl p-6 md:p-10 flex flex-col items-center justify-between border-[3px] shadow-inner bg-gradient-to-br from-primary-600 via-primary-500 to-primary-700 text-white border-white/20`}>
+                             
+                             {/* Decorative Background Elements */}
+                             <div className="absolute top-0 left-0 w-full h-full overflow-hidden rounded-2xl opacity-10 pointer-events-none">
+                                <div className="absolute -top-10 -left-10 w-40 h-40 bg-white rounded-full blur-3xl"></div>
+                                <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-white rounded-full blur-3xl"></div>
+                             </div>
+
+                             <div className="relative w-full flex justify-between items-start opacity-60">
+                                <Sparkles size={18} />
+                                <span className="text-xs font-bold tracking-widest uppercase">
+                                  {language === 'ar' ? 'سؤال' : 'Question'}
+                                </span>
+                             </div>
+
+                             <div className="relative flex-grow flex items-center justify-center w-full my-4 overflow-y-auto custom-scrollbar">
+                                <p className="text-2xl md:text-3xl lg:text-4xl font-bold leading-tight drop-shadow-md">
+                                   <Highlightable text={result.flashcards[currentCardIndex].front} />
+                                </p>
+                             </div>
+
+                             <div className="relative flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/20 backdrop-blur-md border border-white/10 text-xs md:text-sm font-medium transition-transform group-hover:scale-105">
+                               <RotateCw size={14} className={isFlipped ? '' : 'animate-pulse'} />
+                               <span>{language === 'ar' ? 'اضغط لعرض الإجابة' : 'Tap to reveal answer'}</span>
                              </div>
                           </div>
-                          {/* Back */}
-                          <div className={`absolute w-full h-full backface-hidden rotate-y-180 rounded-2xl p-8 flex flex-col items-center justify-center border-2 ${theme === 'dark' ? 'bg-gray-800 border-gray-600 text-gray-100' : 'bg-white text-gray-800 border-gray-200'}`}>
-                             <h3 className={`text-lg font-medium mb-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>التعريف / الإجابة</h3>
-                             <p className="text-xl leading-relaxed font-medium">
-                               <Highlightable text={result.flashcards[currentCardIndex].back} />
-                             </p>
+
+                          {/* Back Side */}
+                          <div className={`absolute w-full h-full backface-hidden rotate-y-180 rounded-2xl p-6 md:p-10 flex flex-col items-center justify-between border-[3px] shadow-xl ${
+                              theme === 'dark' 
+                                ? 'bg-gray-800 border-gray-600 text-gray-100' 
+                                : theme === 'sepia' 
+                                  ? 'bg-[#f4ecd8] border-[#d3cbb1] text-[#5c4b37]' 
+                                  : 'bg-white text-gray-800 border-gray-100'
+                          }`}>
+                             
+                             <div className="w-full flex justify-between items-start opacity-60">
+                                <div className={`w-2 h-2 rounded-full ${theme === 'dark' ? 'bg-green-500' : 'bg-green-500'}`}></div>
+                                <span className="text-xs font-bold tracking-widest uppercase text-primary-500">
+                                  {language === 'ar' ? 'إجابة' : 'Answer'}
+                                </span>
+                             </div>
+
+                             <div className="flex-grow flex items-center justify-center w-full my-4 overflow-y-auto custom-scrollbar">
+                                <p className="text-xl md:text-2xl leading-relaxed font-medium">
+                                  <Highlightable text={result.flashcards[currentCardIndex].back} />
+                                </p>
+                             </div>
+                             
+                             <div className={`text-xs opacity-50 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-400'}`}>
+                               {currentCardIndex + 1} / {result.flashcards.length}
+                             </div>
                           </div>
                        </div>
                     </div>
 
-                    <div className="flex items-center gap-6">
-                       <button onClick={prevCard} className={`p-3 rounded-full transition-colors ${theme === 'dark' ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}>
+                    {/* Controls */}
+                    <div className="flex items-center gap-6 select-none">
+                       <button onClick={prevCard} className={`p-4 rounded-full transition-all active:scale-95 shadow-sm border ${theme === 'dark' ? 'bg-gray-800 border-gray-700 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-600'}`}>
                          <ChevronRight size={24} />
                        </button>
-                       <span className="font-bold opacity-70">
-                          {currentCardIndex + 1} / {result.flashcards.length}
-                       </span>
-                       <button onClick={nextCard} className={`p-3 rounded-full transition-colors ${theme === 'dark' ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}>
+                       <div className="flex flex-col items-center">
+                         <span className={`text-2xl font-bold font-mono ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>
+                            {currentCardIndex + 1}
+                         </span>
+                         <span className="text-xs text-gray-400 uppercase tracking-wider">
+                           {language === 'ar' ? 'بطاقة' : 'Card'}
+                         </span>
+                       </div>
+                       <button onClick={nextCard} className={`p-4 rounded-full transition-all active:scale-95 shadow-sm border ${theme === 'dark' ? 'bg-gray-800 border-gray-700 hover:bg-gray-700 text-gray-300' : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-600'}`}>
                          <ChevronLeft size={24} />
                        </button>
                     </div>
+                    
+                    <div className="mt-8 h-1 w-64 bg-gray-200 rounded-full overflow-hidden dark:bg-gray-700">
+                       <div 
+                         className="h-full bg-primary-500 transition-all duration-300"
+                         style={{ width: `${((currentCardIndex + 1) / result.flashcards.length) * 100}%` }}
+                       ></div>
+                    </div>
+
                  </>
                ) : (
                  <div className="text-center opacity-50">
                    <Layers size={48} className="mx-auto mb-4 opacity-20" />
-                   <p>لم يتم توليد بطاقات لهذا المحتوى.</p>
+                   <p>{language === 'ar' ? 'لم يتم توليد بطاقات لهذا المحتوى.' : 'No flashcards generated.'}</p>
                  </div>
                )}
              </div>
+          )}
+
+          {/* Quiz Tab */}
+          {activeTab === 'quiz' && (
+            <div className="animate-in fade-in duration-300 max-w-3xl mx-auto" dir="auto">
+              {result.quiz && result.quiz.length > 0 ? (
+                <div>
+                   <div className="flex justify-between items-center mb-6">
+                      <h2 className="text-2xl font-bold flex items-center gap-2">
+                        <BrainCircuit className="text-primary-600" />
+                        {language === 'ar' ? 'اختبر نفسك (تفاعلي)' : 'Interactive Quiz'}
+                      </h2>
+                      <div className="text-sm font-bold bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full">
+                         {Object.keys(quizAnswers).length} / {result.quiz.length}
+                      </div>
+                   </div>
+
+                   <div className="space-y-6">
+                     {result.quiz.map((question, qIdx) => {
+                       const userAnswer = quizAnswers[qIdx];
+                       const isAnswered = userAnswer !== undefined;
+                       const isCorrect = isAnswered && userAnswer === question.correctAnswerIndex;
+
+                       return (
+                         <div 
+                           key={qIdx} 
+                           className={`p-6 rounded-xl border-2 transition-all ${
+                             theme === 'dark' ? 'bg-gray-800 border-gray-700' : theme === 'sepia' ? 'bg-[#e8e0cc] border-[#d6cbb1]' : 'bg-white border-gray-100'
+                           } ${isAnswered ? (isCorrect ? 'border-green-500/50' : 'border-red-500/50') : ''}`}
+                         >
+                            <h3 className="font-bold text-lg mb-4 flex gap-2">
+                               <span className="text-primary-500">Q{qIdx + 1}.</span> 
+                               <Highlightable text={question.question} />
+                            </h3>
+
+                            <div className="grid gap-3">
+                              {question.options.map((option, oIdx) => {
+                                const isSelected = userAnswer === oIdx;
+                                const isCorrectOption = question.correctAnswerIndex === oIdx;
+                                
+                                let optionClass = `p-3 rounded-lg border cursor-pointer transition-all flex items-center justify-between group `;
+                                if (isAnswered) {
+                                   if (isCorrectOption) {
+                                     optionClass += `bg-green-50 border-green-500 text-green-900 ring-1 ring-green-500 `; // Correct answer always green
+                                   } else if (isSelected && !isCorrectOption) {
+                                     optionClass += `bg-red-50 border-red-500 text-red-900 ring-1 ring-red-500 `; // Wrong selection red
+                                   } else {
+                                     optionClass += `opacity-50 ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`;
+                                   }
+                                } else {
+                                   optionClass += `${theme === 'dark' ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-200 hover:border-primary-300 hover:bg-primary-50'}`;
+                                }
+
+                                return (
+                                  <div 
+                                    key={oIdx} 
+                                    onClick={() => handleQuizOptionSelect(qIdx, oIdx)}
+                                    className={optionClass}
+                                  >
+                                    <span className="flex items-center gap-3">
+                                      <span className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold ${
+                                        isAnswered && isCorrectOption ? 'bg-green-500 border-green-500 text-white' : 
+                                        isAnswered && isSelected && !isCorrectOption ? 'bg-red-500 border-red-500 text-white' : 
+                                        'border-gray-300 text-gray-400'
+                                      }`}>
+                                        {['A','B','C','D'][oIdx]}
+                                      </span>
+                                      <span className={fontSize === 'lg' ? 'text-lg' : ''}>{option}</span>
+                                    </span>
+                                    
+                                    {isAnswered && isCorrectOption && <CheckCircle size={20} className="text-green-600" />}
+                                    {isAnswered && isSelected && !isCorrectOption && <XCircle size={20} className="text-red-500" />}
+                                  </div>
+                                )
+                              })}
+                            </div>
+
+                            {/* Explanation Box */}
+                            {isAnswered && (
+                              <div className={`mt-4 p-4 rounded-lg flex gap-3 animate-in fade-in slide-in-from-top-2 ${
+                                isCorrect ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
+                              } ${theme === 'dark' ? 'bg-opacity-20' : ''}`}>
+                                 <div className="flex-shrink-0 mt-0.5">
+                                   {isCorrect ? <Sparkles size={18} /> : <BrainCircuit size={18} />}
+                                 </div>
+                                 <div>
+                                   <div className="font-bold text-sm mb-1">
+                                      {isCorrect ? 'Correct!' : 'Incorrect.'}
+                                   </div>
+                                   <p className="text-sm opacity-90">{question.explanation}</p>
+                                 </div>
+                              </div>
+                            )}
+                         </div>
+                       )
+                     })}
+                   </div>
+                </div>
+              ) : (
+                <div className="text-center opacity-50 py-20">
+                  <BrainCircuit size={48} className="mx-auto mb-4 opacity-20" />
+                  <p>{language === 'ar' ? 'لم يتم توليد اختبار لهذا المحتوى.' : 'No quiz generated.'}</p>
+                </div>
+              )}
+            </div>
           )}
 
           {/* Study Plan Tab */}
@@ -854,11 +1036,11 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
                <div className="flex justify-between items-center mb-8">
                  <h2 className="text-2xl font-bold flex items-center gap-3">
                    <Calendar className="text-primary-600" />
-                   خطة المذاكرة المقترحة
+                   {language === 'ar' ? 'خطة المذاكرة المقترحة' : 'Study Plan'}
                  </h2>
                  <button onClick={handleExportExcel} className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${theme === 'dark' ? 'border-gray-600 hover:bg-gray-700' : 'border-gray-300 hover:bg-gray-50'}`}>
                    <TableIcon size={14} />
-                   تصدير Excel
+                   Excel
                  </button>
                </div>
                
@@ -882,7 +1064,7 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
                    ))}
                  </div>
                ) : (
-                 <p className="text-center opacity-50">لا توجد خطة مذاكرة متاحة.</p>
+                 <p className="text-center opacity-50">{language === 'ar' ? 'لا توجد خطة مذاكرة متاحة.' : 'No study plan available.'}</p>
                )}
              </div>
           )}
@@ -909,18 +1091,38 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${msg.role === 'user' ? 'bg-primary-600 text-white' : 'bg-secondary-500 text-white'}`}>
                        {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
                      </div>
-                     <div className={`p-4 rounded-2xl max-w-[80%] ${
-                        msg.role === 'user' 
-                          ? 'bg-primary-50 text-gray-800 rounded-tr-none' 
-                          : theme === 'dark'
-                            ? 'bg-gray-700 text-gray-100 border-gray-600 border shadow-sm rounded-tl-none'
-                            : theme === 'sepia'
-                                ? 'bg-[#e8e0cc] text-[#5c4b37] border-[#d6cbb1] border shadow-sm rounded-tl-none'
-                                : 'bg-white text-gray-800 border border-gray-200 shadow-sm rounded-tl-none'
-                     }`}>
-                       <ReactMarkdown className={`prose prose-sm max-w-none ${theme === 'dark' && msg.role !== 'user' ? 'prose-invert' : ''}`}>
-                         {typeof msg.text === 'string' ? msg.text : ''}
-                       </ReactMarkdown>
+                     <div className="max-w-[85%]">
+                       <div className={`p-4 rounded-2xl ${
+                          msg.role === 'user' 
+                            ? 'bg-primary-50 text-gray-800 rounded-tr-none' 
+                            : theme === 'dark'
+                              ? 'bg-gray-700 text-gray-100 border-gray-600 border shadow-sm rounded-tl-none'
+                              : theme === 'sepia'
+                                  ? 'bg-[#e8e0cc] text-[#5c4b37] border-[#d6cbb1] border shadow-sm rounded-tl-none'
+                                  : 'bg-white text-gray-800 border border-gray-200 shadow-sm rounded-tl-none'
+                       }`}>
+                         <ReactMarkdown className={`prose prose-sm max-w-none ${theme === 'dark' && msg.role !== 'user' ? 'prose-invert' : ''}`}>
+                           {typeof msg.text === 'string' ? msg.text : ''}
+                         </ReactMarkdown>
+                       </div>
+                       
+                       {/* Grounding Sources (Google Search Results) */}
+                       {msg.groundingSources && msg.groundingSources.length > 0 && (
+                          <div className={`mt-2 text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} flex flex-wrap gap-2`}>
+                            <span className="flex items-center gap-1 font-bold"><Search size={10} /> Sources:</span>
+                            {msg.groundingSources.map((source, sIdx) => (
+                              <a 
+                                key={sIdx} 
+                                href={source.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 px-2 py-1 rounded-md flex items-center gap-1 transition-colors"
+                              >
+                                {source.title} <ExternalLink size={8} />
+                              </a>
+                            ))}
+                          </div>
+                       )}
                      </div>
                    </div>
                  ))}
@@ -947,14 +1149,17 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText })
                      type="text"
                      value={inputMessage}
                      onChange={(e) => setInputMessage(e.target.value)}
-                     placeholder="اسأل المساعد الذكي عن أي شيء في الكتاب..."
+                     placeholder={language === 'ar' ? "اسأل المساعد أو ابحث في جوجل..." : "Ask or search Google..."}
                      className={`w-full pl-12 pr-4 py-3 border rounded-xl outline-none transition-all shadow-sm ${theme === 'dark' ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-primary-500' : 'bg-gray-50 border-gray-300 text-gray-900 focus:ring-primary-500'}`}
                      disabled={isChatLoading}
                    />
+                   <div className="absolute left-3 top-3.5 text-gray-400">
+                      <Globe size={18} />
+                   </div>
                    <button 
                     type="submit" 
                     disabled={!inputMessage.trim() || isChatLoading}
-                    className="absolute left-2 top-2 p-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:hover:bg-primary-600 transition-colors"
+                    className="absolute right-2 top-2 p-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:hover:bg-primary-600 transition-colors"
                    >
                      <Send size={20} />
                    </button>

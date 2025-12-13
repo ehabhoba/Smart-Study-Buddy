@@ -27,17 +27,18 @@ export const translations = {
     langEn: "الإنجليزية",
     langMixed: "مختلط (شرح عربي + مصطلحات إنجليزي)",
 
-    startAnalysis: "ابدأ التلخيص واستخراج الأسئلة",
+    startAnalysis: "ابدأ التلخيص واختبار الذكاء",
     processingTitle: "جاري عصر الكتاب...",
-    processingDesc: "يقوم الذكاء الاصطناعي الآن بضغط المحتوى وتلوين النقاط الهامة واستخراج الأسئلة.",
+    processingDesc: "يقوم الذكاء الاصطناعي الآن بضغط المحتوى، استخراج الأسئلة، وإعداد الاختبار التفاعلي.",
     
     // Result View
     tabInfo: "البيانات",
     tabSummary: "كبسولة الامتحان",
     tabFlashcards: "بطاقات",
+    tabQuiz: "اختبار تفاعلي",
     tabPlan: "الخطة",
-    tabQa: "الأسئلة",
-    tabChat: "المساعد",
+    tabQa: "بنك الأسئلة",
+    tabChat: "البحث الذكي",
     
     searchPlaceholder: "بحث...",
     themeLight: "فاتح",
@@ -65,12 +66,18 @@ export const translations = {
     clickToFlip: "اضغط للقلب",
     noFlashcards: "لم يتم توليد بطاقات لهذا المحتوى.",
     
+    quizTitle: "اختبر نفسك (نظام تفاعلي)",
+    quizScore: "النتيجة:",
+    quizExplanation: "الشرح والتوضيح:",
+    quizNoData: "لم يتم توليد اختبار.",
+    
     planTitle: "خطة المذاكرة المقترحة",
     noPlan: "لا توجد خطة مذاكرة متاحة.",
     
-    chatWelcome: "أهلاً بك! أنا مساعدك الذكي لهذا الكتاب. يمكنك سؤالي عن أي نقطة غامضة، أو طلب شرح إضافي.",
-    chatPlaceholder: "اسأل المساعد الذكي عن أي شيء في الكتاب...",
+    chatWelcome: "أهلاً بك! أنا مساعدك الذكي. أنا متصل بـ Google Search للإجابة على أسئلتك بمعلومات محدثة.",
+    chatPlaceholder: "ابحث أو اسأل عن أي شيء في الكتاب...",
     chatError: "عذراً، حدث خطأ في الاتصال.",
+    groundingSources: "مصادر البحث:",
   },
   en: {
     title: "Smart Study Buddy",
@@ -98,17 +105,18 @@ export const translations = {
     langEn: "English",
     langMixed: "Mixed (Ar Explanations + En Terms)",
 
-    startAnalysis: "Start Analysis & Question Extraction",
+    startAnalysis: "Start Analysis & Quiz Gen",
     processingTitle: "Crunching the book...",
-    processingDesc: "AI is compressing content, highlighting key points, and extracting questions.",
+    processingDesc: "AI is compressing content, highlighting key points, and generating an interactive quiz.",
     
     // Result View
     tabInfo: "Info",
     tabSummary: "Summary",
     tabFlashcards: "Cards",
+    tabQuiz: "Interactive Quiz",
     tabPlan: "Plan",
-    tabQa: "Q&A",
-    tabChat: "Assistant",
+    tabQa: "Q&A Bank",
+    tabChat: "Smart Search",
     
     searchPlaceholder: "Search...",
     themeLight: "Light",
@@ -136,11 +144,17 @@ export const translations = {
     clickToFlip: "Click to flip",
     noFlashcards: "No flashcards generated.",
     
+    quizTitle: "Test Yourself (Interactive Mode)",
+    quizScore: "Score:",
+    quizExplanation: "Explanation:",
+    quizNoData: "No quiz generated.",
+    
     planTitle: "Suggested Study Plan",
     noPlan: "No study plan available.",
     
-    chatWelcome: "Welcome! I'm your smart study assistant. Ask me anything about the book.",
-    chatPlaceholder: "Ask the assistant about anything in the book...",
+    chatWelcome: "Welcome! I'm your smart assistant connected to Google Search. Ask me anything.",
+    chatPlaceholder: "Search or ask about anything in the book...",
     chatError: "Sorry, connection error.",
+    groundingSources: "Sources:",
   }
 };

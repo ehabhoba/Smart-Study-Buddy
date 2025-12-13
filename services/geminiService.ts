@@ -111,8 +111,14 @@ export const analyzeCurriculum = async (
     4. **Smart Flashcards:**
        - Front: Term/Question (Output Language).
        - Back: Definition/Answer (Output Language).
+    
+    5. **Interactive Quiz (Multiple Choice):**
+       - Generate at least 10-15 high-quality multiple choice questions.
+       - Provide 4 options per question.
+       - Indicate the correct answer index.
+       - Provide a short educational explanation for the correct answer.
 
-    5. **Smart Study Planner:**
+    6. **Smart Study Planner:**
        - Logical schedule in the **Output Language**.
   `;
 
@@ -156,6 +162,19 @@ export const analyzeCurriculum = async (
               }
             }
           },
+          quiz: {
+            type: Type.ARRAY,
+            description: "Interactive Multiple Choice Quiz",
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                question: { type: Type.STRING },
+                options: { type: Type.ARRAY, items: { type: Type.STRING } },
+                correctAnswerIndex: { type: Type.NUMBER, description: "Index of the correct option (0-3)" },
+                explanation: { type: Type.STRING, description: "Why is this correct?" }
+              }
+            }
+          },
           studyPlan: {
             type: Type.ARRAY,
             description: "Study schedule in Output Language.",
@@ -168,7 +187,7 @@ export const analyzeCurriculum = async (
             }
           }
         },
-        required: ["metadata", "summary", "qaBank", "flashcards", "studyPlan"]
+        required: ["metadata", "summary", "qaBank", "flashcards", "quiz", "studyPlan"]
       }
     }
   });
@@ -198,29 +217,52 @@ export const initChatSession = (apiKey: string, context: string) => {
   const safeContext = context.substring(0, 300000);
 
   chatSession = ai.chats.create({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-2.5-flash', // Google Search is best supported on Pro/Flash
     config: {
+      // Enable Google Search Tool for grounding
+      tools: [{ googleSearch: {} }],
       systemInstruction: `
-        You are Smart Study Buddy Tutor.
-        Context: "${safeContext}"
+        You are Smart Study Buddy Tutor & Researcher.
+        Context from Book: "${safeContext}"
         
-        Task: Help the student understand this book.
-        - **Language Rule**: Adapt to the user's language. If they ask in Arabic, answer in Arabic. If English, answer in English.
-        - Answer strictly based on the provided context.
+        Task: Help the student understand this book and expand their knowledge using Google Search.
+        - **Search Entity**: You are an intelligent entity capable of accessing Google Search to find real-time examples, images, or updated facts.
+        - **Language Rule**: Adapt to the user's language.
+        - **Grounding**: When you use the Search Tool, always reference the links found.
+        - Answer strictly based on the provided context OR the search results.
         - Be supportive and clear.
       `,
     },
   });
 };
 
-export const sendMessageToChat = async (message: string): Promise<string> => {
+export const sendMessageToChat = async (message: string): Promise<{ text: string, sources?: { title: string, url: string }[] }> => {
   if (!chatSession) {
     throw new Error("Chat session not initialized");
   }
 
   try {
     const result = await chatSession.sendMessage({ message });
-    return result.text || "Sorry, I couldn't understand that.";
+    
+    // Extract Grounding Metadata (Search Results)
+    const groundingChunks = result.candidates?.[0]?.groundingMetadata?.groundingChunks;
+    const sources: { title: string, url: string }[] = [];
+    
+    if (groundingChunks) {
+      groundingChunks.forEach((chunk: any) => {
+        if (chunk.web?.uri) {
+          sources.push({
+            title: chunk.web.title || "Source",
+            url: chunk.web.uri
+          });
+        }
+      });
+    }
+
+    return { 
+      text: result.text || "Sorry, I couldn't understand that.",
+      sources: sources.length > 0 ? sources : undefined
+    };
   } catch (error) {
     console.error("Chat Error", error);
     throw error;
