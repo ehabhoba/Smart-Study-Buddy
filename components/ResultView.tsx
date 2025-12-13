@@ -11,7 +11,6 @@ import * as htmlToImage from 'html-to-image';
 
 interface ResultViewProps {
   result: AnalysisResult;
-  apiKey: string;
   originalText: string;
   language: Language;
 }
@@ -19,7 +18,7 @@ interface ResultViewProps {
 type Theme = 'light' | 'dark' | 'sepia';
 type FontSize = 'sm' | 'base' | 'lg';
 
-const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText, language }) => {
+const ResultView: React.FC<ResultViewProps> = ({ result, originalText, language }) => {
   const [activeTab, setActiveTab] = useState<'info' | 'summary' | 'flashcards' | 'quiz' | 'plan' | 'qa' | 'chat'>('summary');
   const [copied, setCopied] = useState(false);
   const [isGeneratingDoc, setIsGeneratingDoc] = useState(false);
@@ -55,8 +54,8 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText, l
 
   // Initialize chat when component mounts
   useEffect(() => {
-    if (apiKey && originalText) {
-      initChatSession(apiKey, originalText);
+    if (originalText) {
+      initChatSession(originalText);
       // Set initial welcome message based on language
       const welcomeMsg = language === 'ar' 
         ? 'أهلاً بك! أنا مساعدك الذكي المتصل بـ Google. يمكنك سؤالي عن الكتاب أو البحث عن معلومات إضافية من الويب.'
@@ -70,7 +69,7 @@ const ResultView: React.FC<ResultViewProps> = ({ result, apiKey, originalText, l
          synthRef.current.cancel();
        }
     };
-  }, [apiKey, originalText, language]);
+  }, [originalText, language]);
 
   // Auto-scroll chat
   useEffect(() => {

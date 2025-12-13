@@ -2,16 +2,15 @@ import { GoogleGenAI, Type, Chat } from "@google/genai";
 import { SummaryLevel, AnalysisResult, OutputLanguage } from "../types";
 
 // Helper to initialize AI
-const getAiClient = (apiKey: string) => new GoogleGenAI({ apiKey });
+const getAiClient = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const analyzeCurriculum = async (
-  apiKey: string,
   text: string,
   summaryLevel: SummaryLevel,
   outputLanguage: OutputLanguage
 ): Promise<AnalysisResult> => {
   
-  const ai = getAiClient(apiKey);
+  const ai = getAiClient();
 
   let summaryInstruction = "";
   switch (summaryLevel) {
@@ -210,8 +209,8 @@ export const analyzeCurriculum = async (
 
 let chatSession: Chat | null = null;
 
-export const initChatSession = (apiKey: string, context: string) => {
-  const ai = getAiClient(apiKey);
+export const initChatSession = (context: string) => {
+  const ai = getAiClient();
   
   // Truncate context for chat
   const safeContext = context.substring(0, 300000);

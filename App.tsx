@@ -4,6 +4,7 @@ import Header from './components/Header';
 import FileUpload from './components/FileUpload';
 import ResultView from './components/ResultView';
 import SeoEmpire from './components/SeoEmpire';
+import NotesDebug from './components/NotesDebug'; // Import the new component
 import { AppStatus, SummaryLevel, AnalysisResult, Language, OutputLanguage } from './types';
 import { extractTextFromPdf } from './services/pdfService';
 import { analyzeCurriculum } from './services/geminiService';
@@ -12,7 +13,6 @@ import { translations } from './utils/translations';
 import { KEYWORD_CLUSTERS, generateSeoContent } from './utils/seoConstants';
 
 const App: React.FC = () => {
-  const [apiKey, setApiKey] = useState<string>('');
   const [status, setStatus] = useState<AppStatus>(AppStatus.IDLE);
   const [progress, setProgress] = useState<number>(0);
   const [extractedText, setExtractedText] = useState<string>('');
@@ -28,14 +28,14 @@ const App: React.FC = () => {
 
   // SEO State
   const [dynamicTitle, setDynamicTitle] = useState('');
+  
+  // Debug Mode State
+  const [showNotesDebug, setShowNotesDebug] = useState(false);
 
   const t = translations[language];
 
-  // Initialize from local storage
+  // Initialize Language & SEO
   useEffect(() => {
-    const savedKey = localStorage.getItem('gemini_api_key');
-    if (savedKey) setApiKey(savedKey);
-    
     const savedLang = localStorage.getItem('app_language') as Language;
     if (savedLang) setLanguage(savedLang);
 
@@ -46,11 +46,6 @@ const App: React.FC = () => {
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
-
-  // Save key
-  useEffect(() => {
-    if (apiKey) localStorage.setItem('gemini_api_key', apiKey);
-  }, [apiKey]);
 
   // Sync HTML dir/lang & Document Title
   useEffect(() => {
@@ -76,11 +71,22 @@ const App: React.FC = () => {
   }, [language, fileName, dynamicTitle]);
 
   const handleHashChange = () => {
-      const hash = window.location.hash.replace('#/', '').replace(/-/g, ' ');
-      if (hash) {
+      const hash = window.location.hash;
+      
+      // Check for Debug Route
+      if (hash === '#/notes') {
+          setShowNotesDebug(true);
+          setDynamicTitle('Supabase Debug | Notes');
+          return;
+      } else {
+          setShowNotesDebug(false);
+      }
+
+      const cleanHash = hash.replace('#/', '').replace(/-/g, ' ');
+      if (cleanHash) {
           // Decode URI component to handle Arabic characters in URL
           try {
-            const decodedHash = decodeURIComponent(hash);
+            const decodedHash = decodeURIComponent(cleanHash);
             setDynamicTitle(`${decodedHash} | مجاناً بالذكاء الاصطناعي`);
           } catch (e) {
              console.log("Hash decode error", e);
@@ -113,11 +119,6 @@ const App: React.FC = () => {
   };
 
   const handleStartAnalysis = async () => {
-    if (!apiKey) {
-      setError(t.apiKeyPlaceholder);
-      return;
-    }
-
     if (!extractedText) {
       setError(language === 'ar' ? 'لا يوجد نص للمعالجة.' : 'No text to process.');
       return;
@@ -127,7 +128,7 @@ const App: React.FC = () => {
     setError(null);
 
     try {
-      const analysis = await analyzeCurriculum(apiKey, extractedText, summaryLevel, outputLanguage);
+      const analysis = await analyzeCurriculum(extractedText, summaryLevel, outputLanguage);
       setResult(analysis);
       setStatus(AppStatus.COMPLETE);
     } catch (err: any) {
@@ -148,9 +149,26 @@ const App: React.FC = () => {
     window.history.pushState("", document.title, window.location.pathname + window.location.search);
   };
 
+  // If Debug Mode is active, render only the NotesDebug component
+  if (showNotesDebug) {
+      return (
+          <div className={`min-h-screen flex flex-col bg-gray-50 text-gray-900 font-sans ${language === 'en' ? 'font-inter' : ''}`}>
+              <Header />
+              <main className="flex-grow container mx-auto px-4 py-8">
+                  <div className="mb-4">
+                      <button onClick={() => window.location.hash = ''} className="text-primary-600 underline">
+                          &larr; {language === 'ar' ? 'العودة للرئيسية' : 'Back to Home'}
+                      </button>
+                  </div>
+                  <NotesDebug />
+              </main>
+          </div>
+      );
+  }
+
   return (
     <div className={`min-h-screen flex flex-col bg-gray-50 text-gray-900 font-sans ${language === 'en' ? 'font-inter' : ''}`}>
-      <Header apiKey={apiKey} setApiKey={setApiKey} language={language} setLanguage={setLanguage} />
+      <Header />
 
       <main className="flex-grow container mx-auto px-4 py-8">
         
@@ -178,7 +196,7 @@ const App: React.FC = () => {
                    : 'Upload PDF or Image. AI will analyze, summarize, and extract questions. The ultimate AI Writing & Conversion tool.'}
               </p>
             </div>
-            <FileUpload onFileSelect={handleFileSelect} language={language} />
+            <FileUpload onFileSelect={handleFileSelect} />
             
             {/* Rich SEO Content Injection */}
             <div className="mt-20 border-t border-gray-100 pt-10">
@@ -341,7 +359,7 @@ const App: React.FC = () => {
                </button>
              </div>
              {/* Pass apiKey and extractedText to enable Chat */}
-             <ResultView result={result} apiKey={apiKey} originalText={extractedText} language={language} />
+             <ResultView result={result} originalText={extractedText} language={language} />
            </div>
         )}
 
