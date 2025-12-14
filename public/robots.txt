@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /private/
+
+Sitemap: https://smart-study-buddy.vercel.app/sitemap.xml
+Host: https://smart-study-buddy.vercel.app

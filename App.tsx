@@ -4,7 +4,9 @@ import Header from './components/Header';
 import FileUpload from './components/FileUpload';
 import ResultView from './components/ResultView';
 import SeoEmpire from './components/SeoEmpire';
-import NotesDebug from './components/NotesDebug'; // Import the new component
+import NotesDebug from './components/NotesDebug';
+import SitemapView from './components/SitemapView';
+import { useSEO } from './hooks/useSEO';
 import { AppStatus, SummaryLevel, AnalysisResult, Language, OutputLanguage } from './types';
 import { extractTextFromPdf } from './services/pdfService';
 import { analyzeCurriculum } from './services/geminiService';
@@ -28,75 +30,156 @@ const App: React.FC = () => {
 
   // SEO State
   const [dynamicTitle, setDynamicTitle] = useState('');
+  const [currentRoute, setCurrentRoute] = useState<string>('');
   
-  // Debug Mode State
+  // Debug & Routes State
   const [showNotesDebug, setShowNotesDebug] = useState(false);
+  const [showSitemap, setShowSitemap] = useState(false);
 
   const t = translations[language];
 
-  // Initialize Language & SEO
+  // --- Dynamic SEO & Metadata Management ---
+  // Calculates SEO data based on app state (result, file, or route)
+  const getSeoData = () => {
+    const baseUrl = 'https://smart-study-buddy.vercel.app';
+    
+    // 1. Result State (Deep Content)
+    if (status === AppStatus.COMPLETE && result) {
+      return {
+        title: `${result.metadata.subject} - ملخص وكبسولة امتحان شاملة | Smart Study Buddy`,
+        description: `ملخص شامل لمادة ${result.metadata.subject} (${result.metadata.stage}). يحتوي على بنك أسئلة، بطاقات استذكار، واختبار تفاعلي. تم التوليد بواسطة الذكاء الاصطناعي.`,
+        keywords: [result.metadata.subject, result.metadata.stage, "ملخص", "أسئلة امتحانات", "flashcards", "pdf summary", ...KEYWORD_CLUSTERS.aiTools.keywords.slice(0, 5)],
+        canonicalUrl: `${baseUrl}/#/summary/${encodeURIComponent(result.metadata.subject)}`,
+        schema: {
+          "@context": "https://schema.org",
+          "@type": "Course",
+          "name": result.metadata.subject,
+          "description": result.metadata.overview.substring(0, 150),
+          "provider": {
+            "@type": "Organization",
+            "name": "Smart Study Buddy AI"
+          },
+          "hasCourseInstance": {
+            "@type": "CourseInstance",
+            "courseMode": "Online",
+            "instructor": {
+              "@type": "Person",
+              "name": "AI Tutor Gemini"
+            }
+          }
+        }
+      };
+    }
+
+    // 2. Landing Pages (SEO Routes)
+    if (currentRoute && !fileName) {
+      const cleanKw = currentRoute.replace(/-/g, ' ');
+      return {
+        title: `${cleanKw} | أداة مجانية بالذكاء الاصطناعي 2024`,
+        description: `أفضل أداة مجانية لـ ${cleanKw}. استخدم تقنيات الذكاء الاصطناعي لتحويل الملفات، تلخيص النصوص، وحل الواجبات الدراسية بدقة عالية.`,
+        keywords: [cleanKw, "online tool", "free ai", "pdf converter", ...KEYWORD_CLUSTERS.pdfTools.keywords.slice(0, 5)],
+        canonicalUrl: `${baseUrl}/#/${currentRoute}`,
+        schema: {
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          "name": `Smart Study Buddy - ${cleanKw}`,
+          "applicationCategory": "ProductivityApplication",
+          "operatingSystem": "Web",
+          "offers": { "@type": "Offer", "price": "0" }
+        }
+      };
+    }
+
+    // 3. Sitemap Page
+    if (showSitemap) {
+       return {
+         title: "خريطة الموقع - كل الأدوات | Smart Study Buddy",
+         description: "دليل كامل لجميع أدوات تحويل PDF، الكتابة بالذكاء الاصطناعي، والتلخيص الدراسي المتاحة على المنصة.",
+         keywords: ["sitemap", "خريطة الموقع", "all tools", "ai directory"],
+         canonicalUrl: `${baseUrl}/#/sitemap`
+       };
+    }
+
+    // 4. Default / Home
+    return {
+      title: language === 'ar' 
+        ? "المُلخص الذكي | تحويل الصور الى pdf - كتابة مقال بالذكاء الاصطناعي" 
+        : "Smart Study Buddy | AI PDF Summarizer & Converter",
+      description: "أداة شاملة: تحويل الصور الى pdf، تحويل pdf to word، كتابة مقالات بالذكاء الاصطناعي، تلخيص النصوص، واستخراج الأسئلة. يدعم العربية.",
+      keywords: KEYWORD_CLUSTERS.pdfTools.keywords.concat(KEYWORD_CLUSTERS.aiTools.keywords).slice(0, 15),
+      canonicalUrl: baseUrl,
+      schema: {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Smart Study Buddy",
+        "url": baseUrl,
+        "applicationCategory": "EducationalApplication"
+      }
+    };
+  };
+
+  const seoData = getSeoData();
+  
+  // Execute the Hook
+  useSEO(seoData);
+
+  // Initialize Language & Router
   useEffect(() => {
     const savedLang = localStorage.getItem('app_language') as Language;
     if (savedLang) setLanguage(savedLang);
 
-    // Initial SEO Check on Load
+    // Initial Route Check
     handleHashChange();
-    
-    // Listen for hash changes
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  // Sync HTML dir/lang & Document Title
+  // Sync HTML dir/lang
   useEffect(() => {
     document.documentElement.lang = language;
     document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
     localStorage.setItem('app_language', language);
-    
-    // Dynamic Title Logic
-    if (dynamicTitle) {
-       document.title = dynamicTitle;
-    } else {
-        if (language === 'ar') {
-        document.title = fileName 
-            ? `${fileName} | المُلخص الذكي`
-            : 'المُلخص الذكي: تحويل الصور و PDF إلى ملخصات | Smart Study Buddy';
-        } else {
-        document.title = fileName
-            ? `${fileName} | Smart Study Buddy`
-            : 'Smart Study Buddy | AI Curriculum Tutor & PDF Converter';
-        }
-    }
-
-  }, [language, fileName, dynamicTitle]);
+  }, [language]);
 
   const handleHashChange = () => {
       const hash = window.location.hash;
       
-      // Check for Debug Route
       if (hash === '#/notes') {
           setShowNotesDebug(true);
-          setDynamicTitle('Supabase Debug | Notes');
+          setShowSitemap(false);
           return;
-      } else {
+      } 
+      
+      if (hash === '#/sitemap') {
+          setShowSitemap(true);
           setShowNotesDebug(false);
+          return;
       }
 
-      const cleanHash = hash.replace('#/', '').replace(/-/g, ' ');
+      setShowNotesDebug(false);
+      setShowSitemap(false);
+
+      const cleanHash = hash.replace('#/', '');
       if (cleanHash) {
-          // Decode URI component to handle Arabic characters in URL
           try {
-            const decodedHash = decodeURIComponent(cleanHash);
-            setDynamicTitle(`${decodedHash} | مجاناً بالذكاء الاصطناعي`);
+            const decodedKw = decodeURIComponent(cleanHash);
+            setCurrentRoute(decodedKw);
+            setDynamicTitle(decodedKw.replace(/-/g, ' '));
           } catch (e) {
              console.log("Hash decode error", e);
           }
+      } else {
+        setCurrentRoute('');
+        setDynamicTitle('');
       }
   };
 
   const handleSeoNavigate = (keyword: string) => {
-      window.location.hash = `/${keyword.replace(/\s+/g, '-')}`;
-      setDynamicTitle(`${keyword} | أداة الذكاء الاصطناعي المجانية`);
+      const slug = keyword.replace(/\s+/g, '-');
+      window.location.hash = `/${slug}`;
+      setCurrentRoute(slug);
+      setDynamicTitle(keyword);
+      setShowSitemap(false);
       window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -105,6 +188,9 @@ const App: React.FC = () => {
     setError(null);
     setProgress(0);
     setFileName(file.name);
+    // When file selected, clear generic route to focus on file
+    setCurrentRoute(''); 
+    window.location.hash = '';
 
     try {
       const text = await extractTextFromPdf(file, (p) => setProgress(p));
@@ -146,10 +232,11 @@ const App: React.FC = () => {
     setProgress(0);
     setFileName('');
     setDynamicTitle('');
-    window.history.pushState("", document.title, window.location.pathname + window.location.search);
+    setCurrentRoute('');
+    window.history.pushState("", document.title, window.location.pathname);
   };
 
-  // If Debug Mode is active, render only the NotesDebug component
+  // View Routing
   if (showNotesDebug) {
       return (
           <div className={`min-h-screen flex flex-col bg-gray-50 text-gray-900 font-sans ${language === 'en' ? 'font-inter' : ''}`}>
@@ -164,6 +251,22 @@ const App: React.FC = () => {
               </main>
           </div>
       );
+  }
+
+  if (showSitemap) {
+    return (
+      <div className={`min-h-screen flex flex-col bg-gray-50 text-gray-900 font-sans ${language === 'en' ? 'font-inter' : ''}`}>
+        <Header />
+        <main className="flex-grow">
+          <SitemapView onNavigate={handleSeoNavigate} onBack={() => window.location.hash = ''} />
+        </main>
+        <footer className="bg-white border-t border-gray-200 py-6">
+          <div className="container mx-auto px-4 text-center text-gray-500 text-sm">
+            <p>© 2024 {t.title}. {language === 'ar' ? 'جميع الحقوق محفوظة.' : 'All rights reserved.'}</p>
+          </div>
+        </footer>
+      </div>
+    );
   }
 
   return (
@@ -184,11 +287,12 @@ const App: React.FC = () => {
           <div className="max-w-2xl mx-auto mt-10">
             <div className="text-center mb-10">
               <h2 className="text-3xl font-extrabold text-gray-900 mb-4 leading-tight">
-                {dynamicTitle ? (
-                    <span className="text-primary-600">{dynamicTitle.split('|')[0]}</span>
+                {currentRoute ? (
+                    <span className="text-primary-600 block mb-2">{dynamicTitle}</span>
                 ) : (
                     language === 'ar' ? 'حوّل كتبك الدراسية إلى ملخصات ذكية' : 'Turn Textbooks into Smart Summaries'
                 )}
+                {!currentRoute && <span className="text-base font-normal text-gray-500 block mt-2">{language === 'ar' ? 'مدعوم بالذكاء الاصطناعي 2.5' : 'Powered by Gemini 2.5'}</span>}
               </h2>
               <p className="text-gray-600 text-lg">
                  {language === 'ar' 
@@ -204,6 +308,11 @@ const App: React.FC = () => {
                  className="prose prose-sm md:prose-base max-w-none text-gray-500 bg-white p-6 rounded-2xl shadow-sm border border-gray-100"
                  dangerouslySetInnerHTML={{ __html: generateSeoContent() }}
                />
+               <div className="text-center mt-6">
+                 <a href="#/sitemap" className="text-primary-600 hover:underline text-sm font-bold">
+                   عرض خريطة الموقع (Sitemap)
+                 </a>
+               </div>
             </div>
           </div>
         )}
@@ -373,6 +482,11 @@ const App: React.FC = () => {
         <div className="container mx-auto px-4 text-center text-gray-500 text-sm">
           <p>© 2024 {t.title}. {language === 'ar' ? 'جميع الحقوق محفوظة.' : 'All rights reserved.'}</p>
           <p className="mt-1">Powered by Google Gemini 2.5 Flash with Thinking Mode</p>
+          <div className="mt-4 flex justify-center gap-4 text-xs">
+            <a href="#/sitemap" className="hover:text-primary-600">Sitemap</a>
+            <a href="#/image-to-pdf" onClick={() => handleSeoNavigate("image to pdf")} className="hover:text-primary-600">Image to PDF</a>
+            <a href="#/ai-writer" onClick={() => handleSeoNavigate("ai writer")} className="hover:text-primary-600">AI Writer</a>
+          </div>
         </div>
       </footer>
     </div>

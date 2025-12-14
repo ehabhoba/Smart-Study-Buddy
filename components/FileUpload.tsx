@@ -1,3 +1,4 @@
+
 import React, { useRef, useState } from 'react';
 import { UploadCloud, FileText, AlertCircle } from 'lucide-react';
 
@@ -37,10 +38,25 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, disabled }) => {
   };
 
   const validateAndProcess = (file: File) => {
-    if (file.type !== 'application/pdf') {
-      alert('يرجى رفع ملف PDF فقط');
+    // 1. Check if file exists
+    if (!file) return;
+
+    // 2. Check for empty file (Size validation)
+    if (file.size === 0) {
+      alert('عذراً، الملف الذي اخترته فارغ (0 bytes). يرجى التأكد من صلاحية الملف.');
+      // Reset input to allow re-selecting if needed
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
+
+    // 3. Check MIME Type
+    if (file.type !== 'application/pdf') {
+      alert('تنسيق الملف غير مدعوم. يرجى رفع ملف بصيغة PDF فقط.');
+      // Reset input
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+    
     onFileSelect(file);
   };
 
